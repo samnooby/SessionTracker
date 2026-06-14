@@ -57,6 +57,23 @@ public class CategoryAggregatorTest {
     }
 
     @Test
+    public void averagesSuppliesPerTripPerItem() {
+        ItemKey shark = ItemKey.item(385);
+        Map<ItemKey, Integer> s1Supplies = new HashMap<>();
+        s1Supplies.put(shark, 4);
+        Trip a = new Trip("a", 0, 1_800_000, false, new HashMap<>(), new HashMap<>(),
+                new HashMap<>(), new HashMap<>(), s1Supplies, new HashMap<>());
+        Map<ItemKey, Integer> s2Supplies = new HashMap<>();
+        s2Supplies.put(shark, 2);
+        Trip b = new Trip("b", 1_800_000, 3_600_000, false, new HashMap<>(), new HashMap<>(),
+                new HashMap<>(), new HashMap<>(), s2Supplies, new HashMap<>());
+        Session sess = new Session("s1", "acct", "Cat", "", Arrays.asList(a, b));
+        CategoryStats stats = CategoryStats.from("Cat", Arrays.asList(sess), oneGp);
+        // (4 + 2) / 2 trips = 3.0 sharks per trip
+        assertEquals(3.0, stats.avgSuppliesPerTrip().get(shark), 0.0001);
+    }
+
+    @Test
     public void groupsSessionsByCategory() {
         Session a = session("s1", "Vorkath", trip("a", 0, 3_600_000, 1000, 5));
         Session b = session("s2", "Zulrah", trip("b", 0, 3_600_000, 2000, 1));

@@ -1,7 +1,11 @@
 package com.goodrunetracker.core;
 
+import com.goodrunetracker.core.item.ItemKey;
 import com.goodrunetracker.core.item.ItemValuer;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /** Aggregated averages across all sessions sharing a category. */
 public final class CategoryStats {
@@ -17,10 +21,12 @@ public final class CategoryStats {
     private final long avgNetProfitPerTrip;
     private final long avgMissedPerTrip;
     private final double avgKillsPerTrip;
+    private final Map<ItemKey, Double> avgSuppliesPerTrip;
 
     private CategoryStats(String category, int sessionCount, int tripCount, long gpPerHour,
                           long xpPerHour, long avgTripDurationMillis, long avgNetProfitPerTrip,
-                          long avgMissedPerTrip, double avgKillsPerTrip) {
+                          long avgMissedPerTrip, double avgKillsPerTrip,
+                          Map<ItemKey, Double> avgSuppliesPerTrip) {
         this.category = category;
         this.sessionCount = sessionCount;
         this.tripCount = tripCount;
@@ -30,6 +36,7 @@ public final class CategoryStats {
         this.avgNetProfitPerTrip = avgNetProfitPerTrip;
         this.avgMissedPerTrip = avgMissedPerTrip;
         this.avgKillsPerTrip = avgKillsPerTrip;
+        this.avgSuppliesPerTrip = avgSuppliesPerTrip;
     }
 
     public static CategoryStats from(String category, List<Session> sessions, ItemValuer valuer) {
@@ -40,6 +47,7 @@ public final class CategoryStats {
         long totalTripDuration = 0;
         long totalMissed = 0;
         int totalKills = 0;
+        Map<ItemKey, Long> totalSupplies = new HashMap<>();
 
         for (Session s : sessions) {
             totalWallClock += s.wallClockMillis();
@@ -50,6 +58,9 @@ public final class CategoryStats {
                 totalTripDuration += t.durationMillis();
                 totalMissed += t.missedValue(valuer);
                 totalKills += t.totalKills();
+                for (Map.Entry<ItemKey, Integer> e : t.suppliesUsed().entrySet()) {
+                    totalSupplies.merge(e.getKey(), e.getValue().longValue(), Long::sum);
+                }
             }
         }
 
@@ -60,8 +71,15 @@ public final class CategoryStats {
         long avgMissed = tripCount == 0 ? 0 : totalMissed / tripCount;
         double avgKills = tripCount == 0 ? 0 : (double) totalKills / tripCount;
 
+        Map<ItemKey, Double> avgSupplies = new HashMap<>();
+        if (tripCount > 0) {
+            for (Map.Entry<ItemKey, Long> e : totalSupplies.entrySet()) {
+                avgSupplies.put(e.getKey(), (double) e.getValue() / tripCount);
+            }
+        }
+
         return new CategoryStats(category, sessions.size(), tripCount, gpPerHour, xpPerHour,
-                avgDuration, avgNet, avgMissed, avgKills);
+                avgDuration, avgNet, avgMissed, avgKills, avgSupplies);
     }
 
     public String category() {
@@ -98,5 +116,9 @@ public final class CategoryStats {
 
     public double avgKillsPerTrip() {
         return avgKillsPerTrip;
+    }
+
+    public Map<ItemKey, Double> avgSuppliesPerTrip() {
+        return Collections.unmodifiableMap(avgSuppliesPerTrip);
     }
 }
