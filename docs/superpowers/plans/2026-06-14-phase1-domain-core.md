@@ -1325,4 +1325,9 @@ git commit -m "feat: per-category statistics aggregation"
 ## Phase 1 done — what comes next (not in this plan)
 
 - **Phase 2 (RuneLite adapter):** `GoodRuneTrackerPlugin` with `@Subscribe` handlers for `NpcLootReceived`, `ItemContainerChanged` (batched per `GameTick` into a settled combined snapshot), `StatChanged`, the bank-interface trip-end trigger, and local-player death detection; an `ItemValuer`/name-lookup backed by `ItemManager`; and Gson JSON persistence under `~/.runelite/goodrunetracker/<accountHash>/`.
+  - **Death ordering (carry-over from Phase 1 review):** the ledger books any net inventory decrease as supplies used, so a death's mass inventory loss would be miscounted if its post-death snapshot reaches `TripLedger.updateCarried`. The adapter must therefore handle death *before* feeding the post-death tick: on local-player death, stop feeding `updateCarried`, set the trip's `died` flag, and apply the keep/discard decision. Only resume per-tick snapshots once a fresh trip/baseline begins.
 - **Phase 3 (UI):** the tabbed `PluginPanel` (Now / Sessions / Stats), config options, and session edit/delete.
+
+## Implementation status
+
+Phase 1 implemented on branch `feature/phase1-domain-core`: all 8 tasks complete, 32 unit tests passing, zero RuneLite imports in the core. Beyond the original plan, the following hardening was added during review: guarded `ItemKey` accessors, zero/negative-drop guards in `TripLedger`, locked tests for the pre-baseline and ground-pool edge cases, a multi-session time-weighting test, and `CategoryStats.avgSuppliesPerTrip()` (the per-item supplies average from the approved Stats design).
