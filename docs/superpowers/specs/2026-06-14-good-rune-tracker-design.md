@@ -39,8 +39,9 @@ average trip length, and more.
   ammo counts).
 - Per-account JSON storage with full, browsable history.
 - Tabbed side panel: **Now / Sessions / Stats**.
-- Supplies tracking that is dose-aware (potions) and ammo-aware (equipment ammo
-  slot).
+- Supplies tracking via an event-ordered ledger: any net decrease in combined
+  inventory+equipment counts as used/lost, dose-normalized for potions (ammo
+  fired-but-not-recovered nets out automatically).
 
 ### Deferred (v2+)
 
@@ -72,8 +73,11 @@ recategorizing never breaks references.
 - `kills`: `Map<NpcName, count>`
 - `dropped`: `Map<ItemId, quantity>` — everything kills produced
 - `pickedUp`: `Map<ItemId, quantity>` — what entered the inventory
-- `suppliesUsed`: `Map<ItemId, doseOrQty>` — consumables spent, dose-/ammo-aware
+- `suppliesUsed`: `Map<ItemId, doseOrQty>` — net carried-quantity decreases,
+  dose-normalized for potions
 - `xpGained`: `Map<Skill, xp>`
+- `diedDuringTrip`: boolean — set if the player died; surfaces the keep/discard
+  prompt and marks the trip
 - Derived: `missed = dropped − pickedUp`; `netProfit = value(pickedUp) −
   value(suppliesUsed)`.
 
@@ -104,27 +108,58 @@ Aggregation over all Sessions sharing a category:
 
 - **Trip starts:** entering combat / first tracked kill after a session is
   active, or manual Start.
-- **Trip ends:** banking detected (bank interface opened, or known bank region
-  plus an inventory deposit) or teleport out of the area. Manual **End** or
-  **Discard** always override automatic detection. Discard drops the in-progress
-  trip without saving.
+- **Trip ends:** the bank interface opening is the sole automatic trigger in v1.
+  Manual **End** or **Discard** always override automatic detection. Discard
+  drops the in-progress trip without saving. (Region-based and teleport-based
+  detection are explicitly deferred — too error-prone for v1.)
 - **Session ends:** manual stop, or after a configurable idle timeout with no
   tracked activity.
+- **Death:** the local player's death is detected and the in-progress trip is
+  flagged, prompting the user to **Discard** it or **Keep** it (marked "died").
+  This prevents a death's mass inventory loss from registering as supplies used.
 
-### Metric sources (RuneLite API)
+### The ledger (core tracking model)
 
-- **Loot dropped + kills:** `NpcLootReceived` — provides the NPC and the items
-  the kill dropped; increments the per-NPC kill count and accumulates `dropped`.
-- **Loot picked up:** inventory snapshot diffs via `ItemContainerChanged`
-  (inventory container). Net increases matched against `dropped` are recorded as
-  `pickedUp`.
-- **Missed value:** `dropped − pickedUp`, valued at GE price via `ItemManager`.
-- **Supplies used:** inventory decreases that are not attributable to banking.
-  Dose-aware: a 4-dose → 3-dose potion transition counts as 1 dose used, not 1
-  item. Ammo-aware: arrows/bolts/darts are counted from the **equipment ammo
-  slot** delta, not the inventory. Charged-item consumption is out of scope for
-  v1.
+Tracking is an event-ordered ledger held in the domain core, updated live as
+events arrive (which also drives the real-time panel). It is **not** a single
+start-vs-end inventory diff — that misclassifies the common case where an item
+is both kill loot and a consumed supply, and where potions change item id per
+dose.
+
+- **Carried-quantity state:** the ledger holds the combined carried quantity per
+  item id across **inventory + equipment together**. Combining the containers
+  means equipping gear, or firing-then-recovering ammo, nets correctly instead
+  of looking like a loss.
+- **On `NpcLootReceived`:** add items to `dropped`, increment the per-NPC kill
+  count, and add the items to a "still on the ground" pool.
+- **On `ItemContainerChanged` (inventory or equipment):** diff against the
+  previous snapshot and apply each change to the ledger:
+  - **Net decrease of an id → supplies used.** Any decrease counts (eating,
+    drinking, firing ammo, dropping a brought item and leaving it). Ammo fired
+    from the equipment ammo slot and not recovered nets out here automatically.
+  - **Net increase of an id → gained.** If the id is in the still-on-the-ground
+    pool, it is recorded as **picked up** and drained from that pool; otherwise
+    it is a generic gain.
+- **Dose normalization:** a layer groups potion item ids into families and
+  reports consumption in **doses** (a (4)→(3) transition is 1 dose used), so the
+  panel and stats show "1 dose of Prayer potion," not "(4) −1, (3) +1."
+- **Missed value:** at trip end, `missed = dropped − pickedUp`, valued at GE
+  price via `ItemManager`.
 - **XP:** `StatChanged` deltas per skill.
+
+### Known v1 limitations (documented, not handled)
+
+- **Storage containers** (looting bag, rune pouch, herb sack, gem/coal bag, seed
+  box): moving items into them reads as an inventory decrease, so it is counted
+  as "used." For the looting bag this means stored loot is mis-attributed to
+  supplies. Accepted for v1; the live ledger makes it visible. Revisit in v2.
+- **Charged items** (trident, blowpipe, etc.): internal charge consumption is
+  invisible to inventory diffs and is not tracked in v1.
+- **Rune pouch:** runes spent from the pouch do not appear as inventory
+  decreases and are not counted; loose-inventory runes are.
+- **Non-potion item transformations** (fletching, alching, etc.): the consumed
+  item reads as "used" and the product as "gained." Rare on combat trips;
+  accepted for v1.
 
 ### Rates
 
@@ -183,8 +218,19 @@ testable plain Java, with the RuneLite-coupled code kept minimal.
 
 ## Open questions / assumptions
 
-- Exact banking-detection heuristics (which widgets / regions) to be refined
-  during implementation against the live client.
-- Matching picked-up items to dropped items when the same item id also arrives
-  from a non-kill source mid-trip is best-effort; ambiguous gains default to
-  "picked up loot".
+- **Banking detection (resolved):** v1 uses the bank interface opening as the
+  only automatic trip-end trigger, backed by manual End/Discard. Which specific
+  bank widgets count (standard bank, deposit box, bank chest) to be confirmed
+  against the live client.
+- **Other players' loot (resolved):** v1 ignores the possibility of picking up
+  items that were not produced by your own kills. Any inventory increase during
+  a trip is attributed to your kill loot.
+- **Loot-and-supply overlap (resolved):** handled by the event-ordered ledger
+  with dose normalization (see "The ledger" above), not an end-of-trip diff.
+  Isolated in the domain core and covered by targeted unit tests (the potion
+  case, ammo fire/recover, kill with partial pickup, equip-from-inventory).
+- **Supplies definition (resolved):** any net decrease in combined
+  inventory+equipment carried quantity counts as used/lost. No maintained
+  "supply list"; this intentionally captures dropped-and-abandoned items too.
+- **Death handling (resolved):** local-player death flags the trip for a
+  keep/discard prompt.
