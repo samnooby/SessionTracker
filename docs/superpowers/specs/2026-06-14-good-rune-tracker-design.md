@@ -160,6 +160,11 @@ dose.
 - **Non-potion item transformations** (fletching, alching, etc.): the consumed
   item reads as "used" and the product as "gained." Rare on combat trips;
   accepted for v1.
+- **Ground-recovered ammo:** ammo fired and later picked back up off the ground
+  is counted as used at fire time and not credited back on recovery (overcounts
+  for setups without an Ava's device). Ava's-saved ammo, which never leaves the
+  slot, is counted correctly. The ledger classifies per settled game tick, so
+  this only affects fire-then-recover-across-ticks.
 
 ### Rates
 
