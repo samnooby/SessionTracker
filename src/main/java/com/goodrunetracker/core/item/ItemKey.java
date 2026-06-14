@@ -26,10 +26,16 @@ public final class ItemKey {
     }
 
     public int itemId() {
+        if (isPotion()) {
+            throw new IllegalStateException("ItemKey is a potion family, not an item");
+        }
         return itemId;
     }
 
     public String potionFamily() {
+        if (!isPotion()) {
+            throw new IllegalStateException("ItemKey is an item, not a potion family");
+        }
         return potionFamily;
     }
 

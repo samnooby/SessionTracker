@@ -23,4 +23,21 @@ public class ItemKeyTest {
         assertEquals(995, ItemKey.item(995).itemId());
         assertEquals("Prayer potion", ItemKey.potion("Prayer potion").potionFamily());
     }
+
+    @Test
+    public void potionKeysWithSameFamilyAreEqual() {
+        assertEquals(ItemKey.potion("Prayer potion"), ItemKey.potion("Prayer potion"));
+        assertEquals(ItemKey.potion("Prayer potion").hashCode(),
+                ItemKey.potion("Prayer potion").hashCode());
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void potionRejectsNullFamily() {
+        ItemKey.potion(null);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void itemIdOnPotionKeyThrows() {
+        ItemKey.potion("Prayer potion").itemId();
+    }
 }
