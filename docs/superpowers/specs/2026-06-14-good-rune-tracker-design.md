@@ -181,6 +181,10 @@ dose.
 - All sessions for the active account are loaded into memory on startup.
 - Writes occur on trip end, session end, and on any edit.
 - Edits (rename, recategorize, delete) rewrite only the affected session file.
+- **Valuation (refined in Phase 2):** each finished trip stores the GE unit
+  prices in effect at trip end alongside its quantities, so historical sessions
+  are valued as earned and never drift with the market. See
+  `2026-06-14-phase2-runelite-adapter-design.md`.
 
 ## UI — tabbed side panel
 
