@@ -81,26 +81,25 @@ def runeLiteVersion = 'latest.release'
 
 dependencies {
     compileOnly group: 'net.runelite', name: 'client', version: runeLiteVersion
-    compileOnly 'org.projectlombok:lombok:1.18.24'
-    annotationProcessor 'org.projectlombok:lombok:1.18.24'
 
     testImplementation group: 'net.runelite', name: 'client', version: runeLiteVersion
     testImplementation 'junit:junit:4.13.2'
 }
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
-}
-
+// Compile to Java 11 bytecode (Plugin-Hub compatible) even on a newer JDK.
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
+    options.release = 11
 }
 
 test {
     useJUnit()
 }
 ```
+
+Note: Lombok is intentionally omitted in Phase 1 (the domain core does not use
+it). It will be added in Phase 2 — at a version that supports the installed JDK —
+when the RuneLite adapter classes need it.
 
 - [ ] **Step 3: Create `.gitignore`**
 
@@ -116,14 +115,16 @@ build/
 
 - [ ] **Step 4: Generate the Gradle wrapper**
 
-Run: `gradle wrapper --gradle-version 8.5`
-If `gradle` is not installed: `brew install gradle` first, then re-run.
+Run: `gradle wrapper --gradle-version 9.3.1`
+(Uses the installed Gradle, which runs on the system JDK 24/25; Gradle 9.x is
+required on that JVM. If `gradle` is missing: `brew install gradle` first.)
 Expected: creates `gradlew`, `gradlew.bat`, and `gradle/wrapper/`.
 
 - [ ] **Step 5: Verify the build compiles**
 
 Run: `./gradlew build`
-Expected: `BUILD SUCCESSFUL` (no sources or tests yet; downloads the RuneLite client dependency).
+Expected: `BUILD SUCCESSFUL` (no sources or tests yet; downloads the Gradle 9.3.1
+distribution and the RuneLite client dependency).
 
 - [ ] **Step 6: Commit**
 
