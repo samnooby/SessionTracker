@@ -43,6 +43,20 @@ public class CategoryAggregatorTest {
     }
 
     @Test
+    public void gpPerHourIsTimeWeightedAcrossSessions() {
+        // Session A: 100 gp over 1h -> 100/h ; Session B: 1000 gp over 0.5h -> 2000/h.
+        // A naive average of per-session rates would be 1050; the time-weighted rate
+        // is total 1100 gp / 1.5h = 733.
+        Session a = session("a", "Cat", trip("a1", 0, 3_600_000, 100, 0));
+        Session b = session("b", "Cat", trip("b1", 0, 1_800_000, 1000, 0));
+        CategoryStats stats = CategoryStats.from("Cat", Arrays.asList(a, b), oneGp);
+        assertEquals(2, stats.sessionCount());
+        assertEquals(2, stats.tripCount());
+        assertEquals(733, stats.gpPerHour());
+        assertEquals(550, stats.avgNetProfitPerTrip());
+    }
+
+    @Test
     public void groupsSessionsByCategory() {
         Session a = session("s1", "Vorkath", trip("a", 0, 3_600_000, 1000, 5));
         Session b = session("s2", "Zulrah", trip("b", 0, 3_600_000, 2000, 1));
