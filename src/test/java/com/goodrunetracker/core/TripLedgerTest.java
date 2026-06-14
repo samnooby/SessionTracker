@@ -98,4 +98,43 @@ public class TripLedgerTest {
         assertEquals(20, trip.suppliesValue(oneGp));
         assertEquals(80, trip.netProfit(oneGp));
     }
+
+    @Test
+    public void killsBeforeFirstCarriedSnapshotAreAllMissed() {
+        TripLedger ledger = new TripLedger();
+        ledger.recordKill("x", carried(ItemKey.item(560), 100));
+        Trip trip = ledger.build("t1", 0, 60_000, false);
+        assertEquals(Integer.valueOf(100), trip.missed().get(ItemKey.item(560)));
+        assertTrue(trip.pickedUp().isEmpty());
+    }
+
+    @Test
+    public void gainBeyondGroundPoolCountsOnlyPoolAmountAsPickup() {
+        TripLedger ledger = new TripLedger();
+        ledger.updateCarried(carried()); // baseline empty
+        ledger.recordKill("x", carried(ItemKey.item(560), 30));
+        ledger.updateCarried(carried(ItemKey.item(560), 50)); // gained 50, only 30 dropped
+        Trip trip = ledger.build("t1", 0, 60_000, false);
+        assertEquals(Integer.valueOf(30), trip.pickedUp().get(ItemKey.item(560)));
+        assertNull(trip.missed().get(ItemKey.item(560)));
+    }
+
+    @Test
+    public void zeroQuantityDropsAreIgnored() {
+        TripLedger ledger = new TripLedger();
+        ledger.recordKill("x", carried(ItemKey.item(560), 0));
+        Trip trip = ledger.build("t1", 0, 60_000, false);
+        assertEquals(1, trip.totalKills());
+        assertTrue(trip.dropped().isEmpty());
+    }
+
+    @Test
+    public void missedValueUsesTheValuer() {
+        TripLedger ledger = new TripLedger();
+        ledger.updateCarried(carried());
+        ledger.recordKill("x", carried(ItemKey.item(560), 100));
+        ledger.updateCarried(carried(ItemKey.item(560), 60));
+        Trip trip = ledger.build("t1", 0, 60_000, false);
+        assertEquals(40, trip.missedValue(oneGp));
+    }
 }

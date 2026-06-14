@@ -29,8 +29,12 @@ public final class TripLedger {
     public void recordKill(String npcName, Map<ItemKey, Integer> drops) {
         kills.merge(npcName, 1, Integer::sum);
         for (Map.Entry<ItemKey, Integer> e : drops.entrySet()) {
-            dropped.merge(e.getKey(), e.getValue(), Integer::sum);
-            groundPool.merge(e.getKey(), e.getValue(), Integer::sum);
+            int qty = e.getValue();
+            if (qty <= 0) {
+                continue;
+            }
+            dropped.merge(e.getKey(), qty, Integer::sum);
+            groundPool.merge(e.getKey(), qty, Integer::sum);
         }
     }
 
@@ -74,6 +78,11 @@ public final class TripLedger {
         }
     }
 
+    /**
+     * Builds the immutable {@link Trip}. Non-destructive: the ledger may be queried again.
+     * Any loot dropped before the first {@link #updateCarried(Map)} baseline cannot be
+     * reconciled to a pickup, so it is reported entirely as missed.
+     */
     public Trip build(String id, long startMillis, long endMillis, boolean died) {
         Map<ItemKey, Integer> missed = new HashMap<>();
         for (Map.Entry<ItemKey, Integer> e : dropped.entrySet()) {
