@@ -308,6 +308,37 @@ public class TrackingServiceTest {
     }
 
     @Test
+    public void snapshotXpIsEmptyBeforeAnyXp() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"));
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+        service.startSession();
+        assertTrue(service.currentSnapshot().get().xpBySkill.isEmpty());
+    }
+
+    @Test
+    public void snapshotListsXpPerSkillAlphabetically() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"));
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+        service.startSession();
+        service.onXp("Ranged", 100_000); // primes
+        service.onXp("Attack", 50_000);  // primes
+        service.onXp("Ranged", 100_300); // +300
+        service.onXp("Attack", 50_200);  // +200
+
+        TripSnapshot snap = service.currentSnapshot().get();
+        assertEquals(2, snap.xpBySkill.size());
+        assertEquals("Attack", snap.xpBySkill.get(0).skill);
+        assertEquals(200L, snap.xpBySkill.get(0).xp);
+        assertEquals("Ranged", snap.xpBySkill.get(1).skill);
+        assertEquals(300L, snap.xpBySkill.get(1).xp);
+        assertEquals(500L, snap.totalXp);
+    }
+
+    @Test
     public void renameAndRecategorizeActiveSessionPersistAfterTripEnds() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();

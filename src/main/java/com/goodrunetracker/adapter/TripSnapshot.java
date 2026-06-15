@@ -1,5 +1,7 @@
 package com.goodrunetracker.adapter;
 
+import java.util.List;
+
 /** Immutable live readout of the in-progress trip, for the panel. */
 public final class TripSnapshot {
     public final int tripNumber;
@@ -10,9 +12,11 @@ public final class TripSnapshot {
     public final long suppliesGp;
     public final long totalXp;
     public final long gpPerHour;
+    public final List<SkillXp> xpBySkill;
 
     public TripSnapshot(int tripNumber, long durationMillis, int kills, long pickedGp,
-                        long groundGp, long suppliesGp, long totalXp, long gpPerHour) {
+                        long groundGp, long suppliesGp, long totalXp, long gpPerHour,
+                        List<SkillXp> xpBySkill) {
         this.tripNumber = tripNumber;
         this.durationMillis = durationMillis;
         this.kills = kills;
@@ -21,5 +25,6 @@ public final class TripSnapshot {
         this.suppliesGp = suppliesGp;
         this.totalXp = totalXp;
         this.gpPerHour = gpPerHour;
+        this.xpBySkill = xpBySkill;
     }
 }
