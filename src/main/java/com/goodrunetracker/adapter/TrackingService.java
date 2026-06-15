@@ -77,6 +77,7 @@ public final class TrackingService {
         tripStartMillis = clock.nowMillis();
         tripDied = false;
         inventoryDirty = false;
+        awaitingDeathChoice = false;
         ledger.updateCarried(normalize(carried.currentCarried()));
         panel.refresh();
     }

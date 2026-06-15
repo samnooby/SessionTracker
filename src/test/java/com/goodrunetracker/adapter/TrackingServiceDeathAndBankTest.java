@@ -135,4 +135,28 @@ public class TrackingServiceDeathAndBankTest {
         service.endSession();
         assertTrue(store.load("acct-A").isEmpty());
     }
+
+    @Test
+    public void unresolvedDeathAtSessionEndDoesNotStickIntoNextSession() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"));
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+
+        service.startSession();
+        killOnce(service, carried, clock);
+        service.onLocalPlayerDeath();   // prompt open, awaitingDeathChoice = true
+        service.endSession();           // session ends WITHOUT resolveDeath
+
+        // The next session must track normally despite the unresolved death flag.
+        service.startSession();
+        Map<Integer, Integer> drop = new HashMap<>();
+        drop.put(560, 50);
+        service.onKill("Vorkath", drop);
+        carried.carried.put(560, carried.carried.getOrDefault(560, 0) + 50);
+        service.markCarriedDirty();
+        clock.now += 10_000;
+        service.onTick();
+        assertEquals(1, service.currentSnapshot().get().kills); // proves onKill/onTick are live
+    }
 }
