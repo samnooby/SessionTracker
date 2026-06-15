@@ -66,4 +66,18 @@ tasks.register('runClient', JavaExec) {
                 "then re-run:      ./gradlew runClient")
         }
     }
+
+    // Jagex-account login: the Jagex Launcher passes JX_* env vars to RuneLite, which
+    // we bypass by launching from Gradle. Drop your captured values into jagex.env
+    // (gitignored, KEY=VALUE per line) and they're injected into the dev client.
+    def jagexEnv = file('jagex.env')
+    if (jagexEnv.exists()) {
+        jagexEnv.readLines().each { line ->
+            def trimmed = line.trim()
+            if (!trimmed.isEmpty() && !trimmed.startsWith('#') && trimmed.contains('=')) {
+                def idx = trimmed.indexOf('=')
+                environment trimmed.substring(0, idx).trim(), trimmed.substring(idx + 1).trim()
+            }
+        }
+    }
 }
