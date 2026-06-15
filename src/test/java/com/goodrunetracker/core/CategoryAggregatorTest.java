@@ -74,6 +74,28 @@ public class CategoryAggregatorTest {
     }
 
     @Test
+    public void aggregateValuesEachTripWithItsOwnValuer() {
+        java.util.Map<com.goodrunetracker.core.item.ItemKey, Integer> picked = new java.util.HashMap<>();
+        picked.put(com.goodrunetracker.core.item.ItemKey.item(560), 10);
+        Trip a = new Trip("a", 0, 3_600_000L, false, new java.util.HashMap<>(),
+                new java.util.HashMap<>(), new java.util.HashMap<>(picked), new java.util.HashMap<>(),
+                new java.util.HashMap<>(), new java.util.HashMap<>());
+        Trip b = new Trip("b", 3_600_000L, 7_200_000L, false, new java.util.HashMap<>(),
+                new java.util.HashMap<>(), new java.util.HashMap<>(picked), new java.util.HashMap<>(),
+                new java.util.HashMap<>(), new java.util.HashMap<>());
+        Session s = new Session("s", "acct", "Vorkath", "name", java.util.Arrays.asList(a, b));
+
+        java.util.function.Function<Trip, com.goodrunetracker.core.item.ItemValuer> perTrip =
+                t -> (key, qty) -> (t.id().equals("a") ? 2L : 5L) * qty;
+
+        java.util.Map<String, CategoryStats> out =
+                CategoryAggregator.aggregate(java.util.Arrays.asList(s), perTrip);
+        CategoryStats stats = out.get("Vorkath");
+        assertEquals(2, stats.tripCount());
+        assertEquals(35L, stats.avgNetProfitPerTrip());
+    }
+
+    @Test
     public void groupsSessionsByCategory() {
         Session a = session("s1", "Vorkath", trip("a", 0, 3_600_000, 1000, 5));
         Session b = session("s2", "Zulrah", trip("b", 0, 3_600_000, 2000, 1));

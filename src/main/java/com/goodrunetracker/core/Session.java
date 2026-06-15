@@ -4,6 +4,7 @@ import com.goodrunetracker.core.item.ItemValuer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Function;
 
 /** An ordered collection of trips for one activity, plus its editable labels. */
 public final class Session {
@@ -65,12 +66,16 @@ public final class Session {
         return last - first;
     }
 
-    public long totalNetProfit(ItemValuer valuer) {
+    public long totalNetProfit(Function<Trip, ItemValuer> valuerFn) {
         long sum = 0;
         for (Trip t : trips) {
-            sum += t.netProfit(valuer);
+            sum += t.netProfit(valuerFn.apply(t));
         }
         return sum;
+    }
+
+    public long totalNetProfit(ItemValuer valuer) {
+        return totalNetProfit(t -> valuer);
     }
 
     public long totalXp() {
@@ -81,9 +86,13 @@ public final class Session {
         return sum;
     }
 
-    public long gpPerHour(ItemValuer valuer) {
+    public long gpPerHour(Function<Trip, ItemValuer> valuerFn) {
         long ms = wallClockMillis();
-        return ms <= 0 ? 0 : totalNetProfit(valuer) * MILLIS_PER_HOUR / ms;
+        return ms <= 0 ? 0 : totalNetProfit(valuerFn) * MILLIS_PER_HOUR / ms;
+    }
+
+    public long gpPerHour(ItemValuer valuer) {
+        return gpPerHour(t -> valuer);
     }
 
     public long xpPerHour() {

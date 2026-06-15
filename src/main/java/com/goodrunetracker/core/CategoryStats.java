@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /** Aggregated averages across all sessions sharing a category. */
 public final class CategoryStats {
@@ -40,6 +41,11 @@ public final class CategoryStats {
     }
 
     public static CategoryStats from(String category, List<Session> sessions, ItemValuer valuer) {
+        return from(category, sessions, t -> valuer);
+    }
+
+    public static CategoryStats from(String category, List<Session> sessions,
+                                     Function<Trip, ItemValuer> valuerFn) {
         int tripCount = 0;
         long totalWallClock = 0;
         long totalNet = 0;
@@ -53,6 +59,7 @@ public final class CategoryStats {
             totalWallClock += s.wallClockMillis();
             totalXp += s.totalXp();
             for (Trip t : s.trips()) {
+                ItemValuer valuer = valuerFn.apply(t);
                 tripCount++;
                 totalNet += t.netProfit(valuer);
                 totalTripDuration += t.durationMillis();

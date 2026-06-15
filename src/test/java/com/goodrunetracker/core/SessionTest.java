@@ -46,6 +46,25 @@ public class SessionTest {
     }
 
     @Test
+    public void gpPerHourValuesEachTripWithItsOwnValuer() {
+        java.util.Map<com.goodrunetracker.core.item.ItemKey, Integer> picked = new java.util.HashMap<>();
+        picked.put(com.goodrunetracker.core.item.ItemKey.item(560), 10);
+        Trip a = new Trip("a", 0, 3_600_000L, false, new java.util.HashMap<>(),
+                new java.util.HashMap<>(), new java.util.HashMap<>(picked), new java.util.HashMap<>(),
+                new java.util.HashMap<>(), new java.util.HashMap<>());
+        Trip b = new Trip("b", 3_600_000L, 7_200_000L, false, new java.util.HashMap<>(),
+                new java.util.HashMap<>(), new java.util.HashMap<>(picked), new java.util.HashMap<>(),
+                new java.util.HashMap<>(), new java.util.HashMap<>());
+        Session s = new Session("s", "acct", "cat", "name", java.util.Arrays.asList(a, b));
+
+        java.util.function.Function<Trip, com.goodrunetracker.core.item.ItemValuer> perTrip =
+                t -> (key, qty) -> (t.id().equals("a") ? 2L : 5L) * qty;
+
+        assertEquals(70L, s.totalNetProfit(perTrip));
+        assertEquals(35L, s.gpPerHour(perTrip));
+    }
+
+    @Test
     public void categoryAndNameAreEditable() {
         Session session = new Session("s1", "acct", "Vorkath", "evening",
                 Arrays.asList(tripWithProfitAndXp("a", 0, 1000, 0, 0)));
