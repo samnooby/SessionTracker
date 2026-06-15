@@ -1,6 +1,7 @@
 package com.goodrunetracker.core;
 
 import com.goodrunetracker.core.item.ItemKey;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -39,6 +40,10 @@ public final class TripLedger {
     }
 
     public void updateCarried(Map<ItemKey, Integer> settledCarried) {
+        updateCarried(settledCarried, Collections.emptySet());
+    }
+
+    public void updateCarried(Map<ItemKey, Integer> settledCarried, Set<ItemKey> droppedThisTick) {
         if (carried == null) {
             carried = new HashMap<>(settledCarried);
             return;
@@ -51,7 +56,12 @@ public final class TripLedger {
             if (delta > 0) {
                 reconcilePickup(key, delta);
             } else if (delta < 0) {
-                suppliesUsed.merge(key, -delta, Integer::sum);
+                int lost = -delta;
+                if (droppedThisTick.contains(key)) {
+                    reverseDrop(key, lost);
+                } else {
+                    suppliesUsed.merge(key, lost, Integer::sum);
+                }
             }
         }
         carried = new HashMap<>(settledCarried);
@@ -69,6 +79,24 @@ public final class TripLedger {
             groundPool.remove(key);
         } else {
             groundPool.put(key, remaining);
+        }
+    }
+
+    private void reverseDrop(ItemKey key, int lost) {
+        int pickedUpQty = pickedUp.getOrDefault(key, 0);
+        int reversed = Math.min(lost, pickedUpQty);
+        if (reversed > 0) {
+            int remaining = pickedUpQty - reversed;
+            if (remaining == 0) {
+                pickedUp.remove(key);
+            } else {
+                pickedUp.put(key, remaining);
+            }
+            groundPool.merge(key, reversed, Integer::sum);
+        }
+        int brought = lost - reversed;
+        if (brought > 0) {
+            suppliesUsed.merge(key, brought, Integer::sum);
         }
     }
 
