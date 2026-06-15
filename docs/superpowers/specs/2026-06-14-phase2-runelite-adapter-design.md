@@ -97,7 +97,9 @@ interfaces so the service is testable headless:
 - `CarriedSnapshotSupplier` — returns the current combined inventory+equipment as
   a raw `Map<Integer,Integer>` (backed by `Client.getItemContainer(...)`; a fake
   in tests).
-- `ItemNameLookup` — `IntFunction<String>` over `ItemManager` for normalization.
+- Item-name lookup — a bare `IntFunction<String>` over `ItemManager` for
+  normalization (implemented as `IntFunction<String>` directly, not a named
+  interface).
 - `LiveItemValuer` — the core `ItemValuer` for live readouts and price capture.
 - `SessionStore` — persistence.
 - `PanelView` — a narrow interface the panel implements (`renderCurrentTrip(...)`,
@@ -204,16 +206,17 @@ New package `com.goodrunetracker.adapter`:
 - `GoodRuneTrackerPlugin.java` — `@Subscribe` wiring only.
 - `GoodRuneTrackerConfig.java` — config interface.
 - `TrackingService.java` — lifecycle state machine (logic).
-- `Clock.java`, `CarriedSnapshotSupplier.java`, `ItemNameLookup.java`,
-  `PanelView.java` — the injected collaborator interfaces.
+- `Clock.java`, `CarriedSnapshotSupplier.java`, `PanelView.java` — the injected
+  collaborator interfaces (item-name lookup is a bare `IntFunction<String>`, not
+  its own file).
 - `PotionRegistry.java`, `LiveItemValuer.java`, `FrozenItemValuer.java` —
   valuation.
 - `SessionStore.java`, `ItemKeyCodec.java`, plus DTO types — persistence.
 - `GoodRuneTrackerPanel.java` — the minimal Swing panel.
 
-Phase 2 also adds the plugin descriptor resources and the Lombok dependency (at a
-version supporting the installed JDK) deferred from Phase 1, plus the
-`runelite-plugin.properties` needed to load the plugin.
+Phase 2b adds the plugin descriptor resources and the
+`runelite-plugin.properties` needed to load the plugin. (Lombok is intentionally
+not used anywhere — plain Java throughout, for JDK 24/25 compatibility.)
 
 ## Open questions / assumptions
 
@@ -225,3 +228,34 @@ version supporting the installed JDK) deferred from Phase 1, plus the
 - **Account hash when logged out:** `getAccountHash()` returns -1 when not logged
   in; the service only persists under a real account, so tracking requires being
   logged in (assumed acceptable).
+
+## Phase 3 read-path decision (recorded now, implemented in Phase 3)
+
+Captured unit prices are stored **per trip**, but the Phase 1 core's
+`Session.gpPerHour(ItemValuer)` and `CategoryStats.from(List<Session>,
+ItemValuer)` take a **single** valuer for the whole aggregate. To value history
+with each trip's own captured prices, Phase 3 will:
+
+1. Add a `SessionMapper.toSession(StoredSession) -> core Session` reader (it does
+   not exist yet; only trip-level `toTrip` does).
+2. Add core overloads that accept a **`Function<Trip, ItemValuer>`** so each trip
+   self-values with `new FrozenItemValuer(thatTrip.unitPrices)` — e.g.
+   `Session.gpPerHour(Function<Trip,ItemValuer>)` and
+   `CategoryStats.from(..., Function<Trip,ItemValuer>)`, with the existing
+   single-valuer methods delegating (`v -> t -> v`) for backward compatibility.
+
+A single composite `ItemValuer` is explicitly rejected: `ItemKey` carries no trip
+identity, so trips with different captured prices for the same key would collide.
+The persisted data (per-trip `unitPrices`) is already correct; only this
+read-side API is deferred.
+
+## Known limitation carried from review (looted-then-dropped)
+
+The ledger cannot distinguish dropping an item to the ground from consuming it —
+both are inventory decreases. So an item you **loot and then drop again** mid-trip
+is counted as both picked-up loot and a supply used (net profit nets to zero, but
+the supplies-used figure is inflated). The "un-pick-up" alternative was rejected
+because it breaks the more common case of a consumable that also drops as loot
+(e.g. bringing food that the monster also drops, then eating it). The correct fix
+is event-based — detect a drop via RuneLite's ground-item spawn on the player's
+tile — and is planned for **Phase 2b**, where those events are available.

@@ -165,6 +165,11 @@ dose.
   for setups without an Ava's device). Ava's-saved ammo, which never leaves the
   slot, is counted correctly. The ledger classifies per settled game tick, so
   this only affects fire-then-recover-across-ticks.
+- **Looted-then-dropped item:** an item picked up as loot and then dropped again
+  mid-trip is counted as both picked-up loot and a supply used (net profit nets
+  to zero, but supplies-used is inflated). The ledger cannot distinguish a drop
+  from a consume. A precise fix needs RuneLite ground-item events and is planned
+  for Phase 2b; see `2026-06-14-phase2-runelite-adapter-design.md`.
 
 ### Rates
 
