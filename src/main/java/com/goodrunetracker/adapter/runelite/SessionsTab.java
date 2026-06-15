@@ -2,6 +2,7 @@ package com.goodrunetracker.adapter.runelite;
 
 import com.goodrunetracker.adapter.GpFormat;
 import com.goodrunetracker.adapter.SessionHistory;
+import com.goodrunetracker.adapter.SkillXp;
 import com.goodrunetracker.adapter.TrackingService;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
@@ -308,10 +309,45 @@ final class SessionsTab extends JPanel {
             addGroup("Picked up", d.pickedUp, Styles.GP);
             addGroup("Left on ground", d.leftOnGround, Styles.MISSED);
             addGroup("Supplies used", d.suppliesUsed, Styles.NEG);
+            addXpGroup(d.xpGained);
         }
         detailBody.revalidate();
         detailBody.repaint();
         cards.show(root, DETAIL);
+    }
+
+    private void addXpGroup(List<SkillXp> xp) {
+        detailBody.add(Styles.sectionHeader("XP gained"));
+        JPanel card = Styles.card();
+        if (xp == null || xp.isEmpty()) {
+            JLabel none = Styles.keyLabel("None");
+            none.setAlignmentX(Component.LEFT_ALIGNMENT);
+            card.add(none);
+        } else {
+            JPanel grid = new JPanel(new GridLayout(0, 2, 0, 3));
+            grid.setBackground(Styles.CARD);
+            grid.setAlignmentX(Component.LEFT_ALIGNMENT);
+            long total = 0;
+            for (SkillXp s : xp) {
+                total += s.xp;
+                grid.add(Styles.skillLabel(s.skill, skillIcons.get(s.skill)));
+                JLabel v = Styles.valueLabel(Styles.XP);
+                v.setText(GpFormat.format(s.xp));
+                grid.add(v);
+            }
+            JLabel totalKey = new JLabel("Total");
+            totalKey.setFont(FontManager.getRunescapeBoldFont());
+            totalKey.setForeground(Styles.TEXT);
+            JLabel totalVal = new JLabel(GpFormat.format(total));
+            totalVal.setFont(FontManager.getRunescapeBoldFont());
+            totalVal.setForeground(Styles.XP);
+            totalVal.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
+            grid.add(totalKey);
+            grid.add(totalVal);
+            Styles.capHeight(grid);
+            card.add(grid);
+        }
+        detailBody.add(card);
     }
 
     private void addGroup(String title, List<SessionHistory.ItemLine> lines, java.awt.Color valueColor) {
