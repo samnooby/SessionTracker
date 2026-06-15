@@ -12,6 +12,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import javax.swing.BoxLayout;
+import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
@@ -99,6 +100,18 @@ final class Styles {
         return l;
     }
 
+    /** A skill row label: the skill name, with its icon if one was supplied. */
+    static JLabel skillLabel(String skill, Icon icon) {
+        JLabel l = new JLabel(skill);
+        l.setFont(FontManager.getRunescapeSmallFont());
+        l.setForeground(SUBTEXT);
+        if (icon != null) {
+            l.setIcon(icon);
+            l.setIconTextGap(5);
+        }
+        return l;
+    }
+
     static JLabel valueLabel(Color color) {
         JLabel l = new JLabel("-");
         l.setFont(FontManager.getRunescapeSmallFont());
@@ -110,6 +123,19 @@ final class Styles {
     /** Pins a component's max height to its preferred height (full width still allowed). */
     static void capHeight(JComponent c) {
         c.setMaximumSize(new Dimension(Integer.MAX_VALUE, c.getPreferredSize().height));
+    }
+
+    /** Appends a bold key + bold right-aligned value (the "Total" footer row) to a 2-column grid. */
+    static void addBoldRow(JPanel grid, String key, String value, Color valueColor) {
+        JLabel k = new JLabel(key);
+        k.setFont(FontManager.getRunescapeBoldFont());
+        k.setForeground(TEXT);
+        JLabel v = new JLabel(value);
+        v.setFont(FontManager.getRunescapeBoldFont());
+        v.setForeground(valueColor);
+        v.setHorizontalAlignment(SwingConstants.RIGHT);
+        grid.add(k);
+        grid.add(v);
     }
 
     static final int CARET_RIGHT = 0;

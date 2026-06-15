@@ -2,13 +2,17 @@ package com.goodrunetracker.adapter.runelite;
 
 import com.goodrunetracker.adapter.GpFormat;
 import com.goodrunetracker.adapter.SessionSnapshot;
+import com.goodrunetracker.adapter.SkillXp;
 import com.goodrunetracker.adapter.TrackingService;
 import com.goodrunetracker.adapter.TripSnapshot;
+import java.util.List;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.GridLayout;
+import java.util.Map;
 import java.util.Optional;
 import javax.swing.Box;
+import javax.swing.Icon;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
@@ -22,6 +26,7 @@ final class NowTab extends JPanel {
     private static final long MILLIS_PER_HOUR = 3_600_000L;
 
     private final ClientThread clientThread;
+    private final Map<String, Icon> skillIcons;
     private TrackingService service;
     private boolean loggedIn;
 
@@ -45,12 +50,15 @@ final class NowTab extends JPanel {
     private final JLabel sessXp = Styles.valueLabel(Styles.XP);
     private final JLabel sessGpHr = Styles.valueLabel(Styles.GP);
 
+    private final JPanel xpBody = new JPanel(new GridLayout(0, 2, 0, 3));
+
     private final JPanel deathPrompt = Styles.card();
     private final JButton keepDeath = Styles.button("Keep", Styles.CARD, Styles.TEXT);
     private final JButton discardDeath = Styles.button("Discard", Styles.CARD, Styles.NEG);
 
-    NowTab(ClientThread clientThread) {
+    NowTab(ClientThread clientThread, Map<String, Icon> skillIcons) {
         this.clientThread = clientThread;
+        this.skillIcons = skillIcons;
         setBackground(Styles.PANEL);
         setLayout(new BorderLayout());
 
@@ -65,6 +73,9 @@ final class NowTab extends JPanel {
 
         body.add(Styles.sectionHeader("Current trip"));
         body.add(currentCard());
+
+        body.add(Styles.sectionHeader("XP gained"));
+        body.add(xpCard());
 
         body.add(Styles.sectionHeader("Session so far"));
         body.add(sessionCard());
@@ -187,6 +198,14 @@ final class NowTab extends JPanel {
         return card;
     }
 
+    private JPanel xpCard() {
+        JPanel card = Styles.card();
+        xpBody.setBackground(Styles.CARD);
+        xpBody.setAlignmentX(Component.LEFT_ALIGNMENT);
+        card.add(xpBody);
+        return card;
+    }
+
     private JPanel sessionCard() {
         JPanel card = Styles.card();
         JPanel grid = new JPanel(new GridLayout(0, 2, 0, 3));
@@ -203,6 +222,27 @@ final class NowTab extends JPanel {
         Styles.capHeight(grid);
         card.add(grid);
         return card;
+    }
+
+    private void renderXp(List<SkillXp> xp) {
+        xpBody.removeAll();
+        if (xp == null || xp.isEmpty()) {
+            xpBody.add(Styles.keyLabel("None"));
+            xpBody.add(new JLabel(""));
+        } else {
+            long total = 0;
+            for (SkillXp s : xp) {
+                total += s.xp;
+                xpBody.add(Styles.skillLabel(s.skill, skillIcons.get(s.skill)));
+                JLabel v = Styles.valueLabel(Styles.XP);
+                v.setText(GpFormat.format(s.xp));
+                xpBody.add(v);
+            }
+            Styles.addBoldRow(xpBody, "Total", GpFormat.format(total), Styles.XP);
+        }
+        Styles.capHeight(xpBody);
+        xpBody.revalidate();
+        xpBody.repaint();
     }
 
     private JPanel buildDeathPrompt() {
@@ -276,6 +316,7 @@ final class NowTab extends JPanel {
             ground.setText(GpFormat.format(s.groundGp));
             supplies.setText(GpFormat.format(s.suppliesGp));
             elapsed.setText(formatElapsed(s.durationMillis));
+            renderXp(s.xpBySkill);
         } else {
             tripGpHr.setText("-");
             tripGpHr.setForeground(Styles.GP);
@@ -285,6 +326,7 @@ final class NowTab extends JPanel {
             ground.setText("-");
             supplies.setText("-");
             elapsed.setText("");
+            renderXp(null);
         }
         Optional<SessionSnapshot> sess = service == null ? Optional.empty() : service.currentSessionSnapshot();
         if (sess.isPresent()) {

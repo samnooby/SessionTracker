@@ -6,12 +6,17 @@ import com.goodrunetracker.adapter.SessionHistory;
 import com.goodrunetracker.adapter.SessionStore;
 import com.goodrunetracker.adapter.TrackingService;
 import com.google.inject.Provides;
+import java.awt.Image;
 import java.awt.image.BufferedImage;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.IntFunction;
 import javax.inject.Inject;
+import javax.swing.Icon;
+import javax.swing.ImageIcon;
 import net.runelite.api.Client;
+import net.runelite.api.Skill;
+import net.runelite.client.game.SkillIconManager;
 import net.runelite.api.GameState;
 import net.runelite.api.InventoryID;
 import net.runelite.api.events.ActorDeath;
@@ -47,6 +52,7 @@ public class GoodRuneTrackerPlugin extends Plugin {
     @Inject private ClientToolbar clientToolbar;
     @Inject private ClientThread clientThread;
     @Inject private GoodRuneTrackerConfig config;
+    @Inject private SkillIconManager skillIconManager;
 
     private GoodRuneTrackerPanel panel;
     private NavigationButton navButton;
@@ -59,7 +65,7 @@ public class GoodRuneTrackerPlugin extends Plugin {
 
     @Override
     protected void startUp() {
-        panel = new GoodRuneTrackerPanel(clientThread);
+        panel = new GoodRuneTrackerPanel(clientThread, buildSkillIcons());
         BufferedImage icon = ImageUtil.loadImageResource(GoodRuneTrackerPlugin.class, "icon.png");
         navButton = NavigationButton.builder()
                 .tooltip("Good Rune Tracker")
@@ -81,6 +87,26 @@ public class GoodRuneTrackerPlugin extends Plugin {
         }
         clientToolbar.removeNavigation(navButton);
         panel = null;
+    }
+
+    /** Skill-name -> small skill icon, resolved once. Keyed by Skill.getName() to match stored XP keys. */
+    private Map<String, Icon> buildSkillIcons() {
+        Map<String, Icon> icons = new HashMap<>();
+        for (Skill skill : Skill.values()) {
+            if (skill == Skill.OVERALL) {
+                continue;
+            }
+            try {
+                BufferedImage img = skillIconManager.getSkillImage(skill, true);
+                if (img != null) {
+                    Image scaled = img.getScaledInstance(16, 16, Image.SCALE_SMOOTH);
+                    icons.put(skill.getName(), new ImageIcon(scaled));
+                }
+            } catch (RuntimeException ignored) {
+                // A not-yet-released skill may lack an icon resource; skip it.
+            }
+        }
+        return icons;
     }
 
     private void buildService() {

@@ -2,6 +2,7 @@ package com.goodrunetracker.adapter.runelite;
 
 import com.goodrunetracker.adapter.GpFormat;
 import com.goodrunetracker.adapter.SessionHistory;
+import com.goodrunetracker.adapter.SkillXp;
 import com.goodrunetracker.adapter.TrackingService;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
@@ -10,7 +11,9 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
 import java.util.List;
+import java.util.Map;
 import javax.swing.Box;
+import javax.swing.Icon;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
@@ -28,6 +31,7 @@ final class SessionsTab extends JPanel {
     private static final String DETAIL = "detail";
 
     private final ClientThread clientThread;
+    private final Map<String, Icon> skillIcons;
     private final CardLayout cards = new CardLayout();
     private final JPanel root = new JPanel();
     private final JPanel listBody = new JPanel();
@@ -38,8 +42,9 @@ final class SessionsTab extends JPanel {
     private String expandedSessionId;
     private String editingSessionId;
 
-    SessionsTab(ClientThread clientThread) {
+    SessionsTab(ClientThread clientThread, Map<String, Icon> skillIcons) {
         this.clientThread = clientThread;
+        this.skillIcons = skillIcons;
         setBackground(Styles.PANEL);
         setLayout(new BorderLayout());
         root.setLayout(cards);
@@ -304,10 +309,37 @@ final class SessionsTab extends JPanel {
             addGroup("Picked up", d.pickedUp, Styles.GP);
             addGroup("Left on ground", d.leftOnGround, Styles.MISSED);
             addGroup("Supplies used", d.suppliesUsed, Styles.NEG);
+            addXpGroup(d.xpGained);
         }
         detailBody.revalidate();
         detailBody.repaint();
         cards.show(root, DETAIL);
+    }
+
+    private void addXpGroup(List<SkillXp> xp) {
+        detailBody.add(Styles.sectionHeader("XP gained"));
+        JPanel card = Styles.card();
+        if (xp == null || xp.isEmpty()) {
+            JLabel none = Styles.keyLabel("None");
+            none.setAlignmentX(Component.LEFT_ALIGNMENT);
+            card.add(none);
+        } else {
+            JPanel grid = new JPanel(new GridLayout(0, 2, 0, 3));
+            grid.setBackground(Styles.CARD);
+            grid.setAlignmentX(Component.LEFT_ALIGNMENT);
+            long total = 0;
+            for (SkillXp s : xp) {
+                total += s.xp;
+                grid.add(Styles.skillLabel(s.skill, skillIcons.get(s.skill)));
+                JLabel v = Styles.valueLabel(Styles.XP);
+                v.setText(GpFormat.format(s.xp));
+                grid.add(v);
+            }
+            Styles.addBoldRow(grid, "Total", GpFormat.format(total), Styles.XP);
+            Styles.capHeight(grid);
+            card.add(grid);
+        }
+        detailBody.add(card);
     }
 
     private void addGroup(String title, List<SessionHistory.ItemLine> lines, java.awt.Color valueColor) {

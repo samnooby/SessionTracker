@@ -4,6 +4,8 @@ import com.goodrunetracker.adapter.PanelView;
 import com.goodrunetracker.adapter.SessionHistory;
 import com.goodrunetracker.adapter.TrackingService;
 import java.awt.BorderLayout;
+import java.util.Map;
+import javax.swing.Icon;
 import javax.swing.JTabbedPane;
 import javax.swing.SwingUtilities;
 import net.runelite.client.callback.ClientThread;
@@ -17,9 +19,9 @@ public final class GoodRuneTrackerPanel extends PluginPanel implements PanelView
     private final StatsTab statsTab;
     private final JTabbedPane tabs = new JTabbedPane();
 
-    public GoodRuneTrackerPanel(ClientThread clientThread) {
-        this.nowTab = new NowTab(clientThread);
-        this.sessionsTab = new SessionsTab(clientThread);
+    public GoodRuneTrackerPanel(ClientThread clientThread, Map<String, Icon> skillIcons) {
+        this.nowTab = new NowTab(clientThread, skillIcons);
+        this.sessionsTab = new SessionsTab(clientThread, skillIcons);
         this.statsTab = new StatsTab(clientThread);
         setLayout(new BorderLayout());
         tabs.addTab("Now", nowTab);

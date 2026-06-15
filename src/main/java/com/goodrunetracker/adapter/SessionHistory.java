@@ -71,7 +71,8 @@ public final class SessionHistory {
                 Trip t = SessionMapper.toTrip(st);
                 ItemValuer v = new FrozenItemValuer(SessionMapper.unitPrices(st));
                 return new TripDetail(lines(t.pickedUp(), v), lines(t.missed(), v),
-                        lines(t.suppliesUsed(), v), t.netProfit(v), t.missedValue(v));
+                        lines(t.suppliesUsed(), v), t.netProfit(v), t.missedValue(v),
+                        SkillXp.sortedFrom(t.xpGained()));
             }
         }
         return null;
@@ -250,14 +251,17 @@ public final class SessionHistory {
         public final List<ItemLine> suppliesUsed;
         public final long netProfit;
         public final long missedValue;
+        public final List<SkillXp> xpGained;
 
         public TripDetail(List<ItemLine> pickedUp, List<ItemLine> leftOnGround,
-                          List<ItemLine> suppliesUsed, long netProfit, long missedValue) {
+                          List<ItemLine> suppliesUsed, long netProfit, long missedValue,
+                          List<SkillXp> xpGained) {
             this.pickedUp = pickedUp;
             this.leftOnGround = leftOnGround;
             this.suppliesUsed = suppliesUsed;
             this.netProfit = netProfit;
             this.missedValue = missedValue;
+            this.xpGained = xpGained;
         }
     }
 

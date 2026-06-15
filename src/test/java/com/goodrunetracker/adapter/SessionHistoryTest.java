@@ -166,6 +166,28 @@ public class SessionHistoryTest {
     }
 
     @Test
+    public void tripDetailListsXpPerSkillAlphabetically() throws Exception {
+        Path root = Files.createTempDirectory("grt");
+        SessionStore store = new SessionStore(root);
+        Map<String, Long> xp = new HashMap<>();
+        xp.put("Ranged", 300L);
+        xp.put("Attack", 200L);
+        Trip t = new Trip("t1", 0, 60_000, false, new HashMap<>(), new HashMap<>(),
+                new HashMap<>(), new HashMap<>(), new HashMap<>(), xp);
+        StoredTrip st = SessionMapper.toStored(t, new HashMap<>());
+        save(store, "acct", "s", "Vorkath", "", 0, 60_000, Arrays.asList(st));
+
+        SessionHistory history = new SessionHistory(store, "acct", names);
+        SessionHistory.TripDetail d = history.tripDetail("s", "t1");
+
+        assertEquals(2, d.xpGained.size());
+        assertEquals("Attack", d.xpGained.get(0).skill);
+        assertEquals(200L, d.xpGained.get(0).xp);
+        assertEquals("Ranged", d.xpGained.get(1).skill);
+        assertEquals(300L, d.xpGained.get(1).xp);
+    }
+
+    @Test
     public void categoryDetailAveragesSuppliesPerTripWithTotal() throws Exception {
         Path root = Files.createTempDirectory("grt");
         SessionStore store = new SessionStore(root);

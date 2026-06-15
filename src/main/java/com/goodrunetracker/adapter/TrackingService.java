@@ -240,7 +240,8 @@ public final class TrackingService {
         long gpPerHour = duration <= 0 ? 0 : net * MILLIS_PER_HOUR / duration;
         int tripNumber = activeSession.trips.size() + 1;
         return new TripSnapshot(tripNumber, duration, trip.totalKills(),
-                picked, ground, supplies, trip.totalXp(), gpPerHour);
+                picked, ground, supplies, trip.totalXp(), gpPerHour,
+                SkillXp.sortedFrom(trip.xpGained()));
     }
 
     private SessionSnapshot computeSessionSnapshot() {
