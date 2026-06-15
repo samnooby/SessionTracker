@@ -229,6 +229,30 @@ not used anywhere — plain Java throughout, for JDK 24/25 compatibility.)
   in; the service only persists under a real account, so tracking requires being
   logged in (assumed acceptable).
 
+## Phase 2b decisions (recorded during 2b brainstorming)
+
+Phase 2 is implemented in two sub-phases: **2a** (adapter logic, merged) and
+**2b** (the RuneLite glue + minimal panel that makes it run in-client). Two
+decisions were settled before planning 2b:
+
+- **Login lifecycle — require login to start.** Tracking needs a real account
+  hash (`Client.getAccountHash()` is -1 when logged out). The panel's Start
+  control is disabled until logged in; the `TrackingService` is (re)built with
+  the current account hash on login. Logging out mid-session auto-stops and saves
+  the session. Pre-login activity is never tracked.
+- **Drop-detection deferred to Phase 2c.** The event-based fix for the
+  looted-then-dropped limitation (distinguishing a drop from a consume via a
+  ground-item spawn on the player's tile) is split into its own focused phase
+  after 2b is verified running in-client — it adds a new event path and
+  attribution heuristics that need live tuning, and bundling it into the
+  un-unit-testable 2b glue would muddy verification. 2b keeps the documented
+  looted-drop limitation; 2c removes it.
+
+Phase 2b is intentionally a thin wiring layer over the already-tested 2a logic:
+the only genuinely new testable code is the inventory+equipment → raw-map
+combiner and the login/account wiring; the `@Subscribe` handlers and the Swing
+panel are verified by an in-client checklist.
+
 ## Phase 3 read-path decision (recorded now, implemented in Phase 3)
 
 Captured unit prices are stored **per trip**, but the Phase 1 core's

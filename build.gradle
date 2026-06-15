@@ -31,3 +31,53 @@ tasks.withType(JavaCompile) {
 test {
     useJUnit()
 }
+
+// Dev convenience: launch a RuneLite client with this plugin loaded.
+// Run from a terminal (or Cursor's integrated terminal) with: ./gradlew runClient
+// The plugin's dev runner and the RuneLite client both live on the test classpath.
+//
+// RuneLite targets Java 11; newer JDKs (17+) break on macOS because the client
+// subclasses an internal Apple class (com.apple.eawt.FullScreenAdapter) that strong
+// encapsulation blocks — and --add-exports does NOT reliably get past it. So we run
+// the client on an installed Java 11. The rest of the build uses your default JDK.
+def jdk11Java = [
+    '/opt/homebrew/opt/openjdk@11/bin/java',
+    '/usr/local/opt/openjdk@11/bin/java',
+    '/Library/Java/JavaVirtualMachines/temurin-11.jdk/Contents/Home/bin/java',
+    '/Library/Java/JavaVirtualMachines/openjdk-11.jdk/Contents/Home/bin/java',
+    '/Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java',
+    '/Library/Java/JavaVirtualMachines/microsoft-11.jdk/Contents/Home/bin/java',
+].find { file(it).exists() }
+
+tasks.register('runClient', JavaExec) {
+    group = 'application'
+    description = 'Launch a development RuneLite client with the Good Rune Tracker plugin loaded'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.goodrunetracker.adapter.runelite.GoodRuneTrackerPluginRun'
+    args = ['--developer-mode']
+    enableAssertions = true  // RuneLite's dev plugin loader requires -ea
+    if (jdk11Java != null) {
+        executable = jdk11Java
+    } else {
+        doFirst {
+            throw new GradleException(
+                "Java 11 (RuneLite's runtime) was not found in a known location.\n" +
+                "Install it with:  brew install openjdk@11\n" +
+                "then re-run:      ./gradlew runClient")
+        }
+    }
+
+    // Jagex-account login: the Jagex Launcher passes JX_* env vars to RuneLite, which
+    // we bypass by launching from Gradle. Drop your captured values into jagex.env
+    // (gitignored, KEY=VALUE per line) and they're injected into the dev client.
+    def jagexEnv = file('jagex.env')
+    if (jagexEnv.exists()) {
+        jagexEnv.readLines().each { line ->
+            def trimmed = line.trim()
+            if (!trimmed.isEmpty() && !trimmed.startsWith('#') && trimmed.contains('=')) {
+                def idx = trimmed.indexOf('=')
+                environment trimmed.substring(0, idx).trim(), trimmed.substring(idx + 1).trim()
+            }
+        }
+    }
+}

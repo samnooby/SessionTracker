@@ -3,3 +3,6 @@ build/
 *.iml
 .idea/
 .superpowers/
+
+# Local Jagex-account dev credentials (never commit)
+jagex.env
