@@ -159,12 +159,16 @@ final class Styles {
         return b;
     }
 
-    /** Makes a card-like row behave as one big button: click on the row or any non-button child fires. */
+    /**
+     * Makes a card-like row behave as one big button: a press on the row or any non-button
+     * child fires. Uses {@code mousePressed} (not {@code mouseClicked}) so a press/release
+     * landing on different child labels, or a pixel of mouse drift, still registers.
+     */
     static void clickable(JPanel row, Runnable onClick) {
         row.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         MouseAdapter ma = new MouseAdapter() {
             @Override
-            public void mouseClicked(MouseEvent e) {
+            public void mousePressed(MouseEvent e) {
                 onClick.run();
             }
         };
