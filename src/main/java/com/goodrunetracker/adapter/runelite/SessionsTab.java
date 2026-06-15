@@ -6,12 +6,13 @@ import com.goodrunetracker.adapter.TrackingService;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Component;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.GridLayout;
 import java.util.List;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
-import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
@@ -196,16 +197,29 @@ final class SessionsTab extends JPanel {
 
         JLabel catKey = Styles.keyLabel("Category");
         catKey.setAlignmentX(Component.LEFT_ALIGNMENT);
-        JComboBox<String> category = new JComboBox<>(history.categories().toArray(new String[0]));
-        category.setEditable(true);
-        category.setSelectedItem(s.category);
-        category.setBackground(Styles.TILE);
-        category.setForeground(Styles.TEXT);
-        category.setFont(FontManager.getRunescapeSmallFont());
-        category.setAlignmentX(Component.LEFT_ALIGNMENT);
-        Styles.capHeight(category);
+        JTextField category = new JTextField(s.category == null ? "" : s.category);
+        styleField(category);
         form.add(catKey);
         form.add(category);
+
+        List<String> existing = history.categories();
+        if (!existing.isEmpty()) {
+            JPanel chips = new JPanel(new WrapLayout(FlowLayout.LEFT, 4, 4)) {
+                @Override
+                public Dimension getMaximumSize() {
+                    return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
+                }
+            };
+            chips.setBackground(Styles.CARD);
+            chips.setBorder(new EmptyBorder(4, 0, 0, 0));
+            chips.setAlignmentX(Component.LEFT_ALIGNMENT);
+            for (String c : existing) {
+                JButton chip = Styles.chip(c);
+                chip.addActionListener(e -> category.setText(c));
+                chips.add(chip);
+            }
+            form.add(chips);
+        }
         form.add(Box.createVerticalStrut(8));
 
         JPanel buttons = new JPanel(new GridLayout(1, 2, 5, 0));
@@ -215,8 +229,7 @@ final class SessionsTab extends JPanel {
         JButton cancel = Styles.button("Cancel", Styles.TILE, Styles.TEXT);
         save.addActionListener(e -> {
             String newName = name.getText();
-            Object cat = category.getSelectedItem();
-            String newCat = cat == null ? s.category : cat.toString();
+            String newCat = category.getText().isEmpty() ? s.category : category.getText();
             applyEdit(s.sessionId, newName, newCat);
             editingSessionId = null;
             renderList();

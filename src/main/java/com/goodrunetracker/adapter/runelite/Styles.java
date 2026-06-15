@@ -147,6 +147,18 @@ final class Styles {
         return b;
     }
 
+    /** A small pill-style button for reusing an existing category. */
+    static JButton chip(String text) {
+        JButton b = new JButton(text);
+        b.setFont(FontManager.getRunescapeSmallFont());
+        b.setBackground(TILE);
+        b.setForeground(SUBTEXT);
+        b.setFocusPainted(false);
+        b.setBorder(new EmptyBorder(2, 7, 2, 7));
+        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        return b;
+    }
+
     /** Makes a card-like row behave as one big button: click on the row or any non-button child fires. */
     static void clickable(JPanel row, Runnable onClick) {
         row.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
