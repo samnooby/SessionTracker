@@ -119,4 +119,50 @@ public class SessionHistoryTest {
         assertEquals(3000L, detail.suppliesUsed.get(0).gpValue);
         assertEquals(-2_900L, detail.netProfit);
     }
+
+    @Test
+    public void categoryStatsAreSortedByGpPerHourDescending() throws Exception {
+        Path root = Files.createTempDirectory("grt");
+        SessionStore store = new SessionStore(root);
+        ItemKey coins = ItemKey.item(560);
+        Map<ItemKey, Long> price = new HashMap<>();
+        price.put(coins, 1L);
+        save(store, "acct", "v", "Vorkath", "", 0, 3_600_000L,
+                Arrays.asList(trip("vt", 0, 3_600_000L, 1, qty(coins, 100), new HashMap<>(),
+                        new HashMap<>(), price)));
+        save(store, "acct", "z", "Zulrah", "", 0, 3_600_000L,
+                Arrays.asList(trip("zt", 0, 3_600_000L, 1, qty(coins, 300), new HashMap<>(),
+                        new HashMap<>(), price)));
+
+        SessionHistory history = new SessionHistory(store, "acct", names);
+        List<SessionHistory.CategoryStatsView> cats = history.categoryStats();
+        assertEquals(2, cats.size());
+        assertEquals("Zulrah", cats.get(0).category);
+        assertEquals(300L, cats.get(0).gpPerHour);
+        assertEquals("Vorkath", cats.get(1).category);
+    }
+
+    @Test
+    public void categoryDetailAveragesSuppliesPerTripWithTotal() throws Exception {
+        Path root = Files.createTempDirectory("grt");
+        SessionStore store = new SessionStore(root);
+        ItemKey coins = ItemKey.item(560);
+        ItemKey brew = ItemKey.item(6685);
+        Map<ItemKey, Long> price = new HashMap<>();
+        price.put(coins, 1L);
+        price.put(brew, 1000L);
+        List<StoredTrip> trips = new ArrayList<>();
+        trips.add(trip("t1", 0, 3_600_000L, 2, qty(coins, 100), new HashMap<>(), qty(brew, 2), price));
+        trips.add(trip("t2", 3_600_000L, 7_200_000L, 4, qty(coins, 100), new HashMap<>(), qty(brew, 4), price));
+        save(store, "acct", "s", "Vorkath", "", 0, 7_200_000L, trips);
+
+        SessionHistory history = new SessionHistory(store, "acct", names);
+        SessionHistory.CategoryDetail d = history.categoryDetail("Vorkath");
+        assertEquals(1, d.supplies.size());
+        assertEquals("Item 6685", d.supplies.get(0).label);
+        assertEquals(3.0, d.supplies.get(0).avgQtyPerTrip, 0.0001);
+        assertEquals(3000L, d.supplies.get(0).avgGpPerTrip);
+        assertEquals(3000L, d.avgTotalSuppliesGpPerTrip);
+        assertEquals(3, d.avgKillsPerTrip, 0.0001);
+    }
 }

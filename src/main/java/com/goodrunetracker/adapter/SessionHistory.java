@@ -1,11 +1,14 @@
 package com.goodrunetracker.adapter;
 
+import com.goodrunetracker.core.CategoryStats;
 import com.goodrunetracker.core.Session;
 import com.goodrunetracker.core.Trip;
 import com.goodrunetracker.core.item.ItemKey;
 import com.goodrunetracker.core.item.ItemValuer;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.IntFunction;
@@ -70,6 +73,73 @@ public final class SessionHistory {
             }
         }
         return null;
+    }
+
+    public List<CategoryStatsView> categoryStats() {
+        Map<String, List<Session>> byCategory = sessionsByCategory();
+        List<CategoryStatsView> out = new ArrayList<>();
+        for (Map.Entry<String, List<Session>> e : byCategory.entrySet()) {
+            CategoryStats cs = CategoryStats.from(e.getKey(), e.getValue(), perTripValuer());
+            out.add(new CategoryStatsView(cs.category(), cs.sessionCount(), cs.tripCount(),
+                    cs.gpPerHour(), cs.xpPerHour()));
+        }
+        out.sort(Comparator.comparingLong((CategoryStatsView c) -> c.gpPerHour).reversed());
+        return out;
+    }
+
+    public CategoryDetail categoryDetail(String category) {
+        Map<String, List<Session>> byCategory = sessionsByCategory();
+        List<Session> sessions = byCategory.getOrDefault(category, new ArrayList<>());
+        java.util.function.Function<Trip, ItemValuer> fn = perTripValuer();
+        CategoryStats cs = CategoryStats.from(category, sessions, fn);
+
+        Map<ItemKey, Long> totalQty = new HashMap<>();
+        Map<ItemKey, Long> totalGp = new HashMap<>();
+        int tripCount = 0;
+        for (Session s : sessions) {
+            for (Trip t : s.trips()) {
+                tripCount++;
+                ItemValuer v = fn.apply(t);
+                for (Map.Entry<ItemKey, Integer> e : t.suppliesUsed().entrySet()) {
+                    totalQty.merge(e.getKey(), e.getValue().longValue(), Long::sum);
+                    totalGp.merge(e.getKey(), v.value(e.getKey(), e.getValue()), Long::sum);
+                }
+            }
+        }
+        List<SupplyAverage> supplies = new ArrayList<>();
+        long totalSuppliesGp = 0;
+        for (Map.Entry<ItemKey, Long> e : totalGp.entrySet()) {
+            totalSuppliesGp += e.getValue();
+            double avgQty = tripCount == 0 ? 0 : (double) totalQty.get(e.getKey()) / tripCount;
+            long avgGp = tripCount == 0 ? 0 : e.getValue() / tripCount;
+            supplies.add(new SupplyAverage(label(e.getKey()), avgQty, avgGp));
+        }
+        supplies.sort(Comparator.comparingLong((SupplyAverage s) -> s.avgGpPerTrip).reversed());
+        long avgTotalSupplies = tripCount == 0 ? 0 : totalSuppliesGp / tripCount;
+
+        return new CategoryDetail(cs.gpPerHour(), cs.xpPerHour(), cs.avgNetProfitPerTrip(),
+                cs.avgMissedPerTrip(), cs.avgTripDurationMillis(), cs.avgKillsPerTrip(),
+                supplies, avgTotalSupplies);
+    }
+
+    private Map<String, List<Session>> sessionsByCategory() {
+        Map<String, List<Session>> byCategory = new LinkedHashMap<>();
+        for (StoredSession s : store.load(accountHash)) {
+            byCategory.computeIfAbsent(s.category, k -> new ArrayList<>()).add(SessionMapper.toSession(s));
+        }
+        return byCategory;
+    }
+
+    /** A per-trip valuer spanning every stored trip (trip ids are unique across sessions). */
+    private java.util.function.Function<Trip, ItemValuer> perTripValuer() {
+        Map<String, ItemValuer> byTripId = new HashMap<>();
+        for (StoredSession s : store.load(accountHash)) {
+            for (StoredTrip st : s.trips) {
+                byTripId.put(st.id, new FrozenItemValuer(SessionMapper.unitPrices(st)));
+            }
+        }
+        ItemValuer zero = (key, q) -> 0L;
+        return trip -> byTripId.getOrDefault(trip.id(), zero);
     }
 
     private StoredSession find(String sessionId) {
@@ -170,6 +240,59 @@ public final class SessionHistory {
             this.suppliesUsed = suppliesUsed;
             this.netProfit = netProfit;
             this.missedValue = missedValue;
+        }
+    }
+
+    public static final class CategoryStatsView {
+        public final String category;
+        public final int sessionCount;
+        public final int tripCount;
+        public final long gpPerHour;
+        public final long xpPerHour;
+
+        public CategoryStatsView(String category, int sessionCount, int tripCount,
+                                 long gpPerHour, long xpPerHour) {
+            this.category = category;
+            this.sessionCount = sessionCount;
+            this.tripCount = tripCount;
+            this.gpPerHour = gpPerHour;
+            this.xpPerHour = xpPerHour;
+        }
+    }
+
+    public static final class SupplyAverage {
+        public final String label;
+        public final double avgQtyPerTrip;
+        public final long avgGpPerTrip;
+
+        public SupplyAverage(String label, double avgQtyPerTrip, long avgGpPerTrip) {
+            this.label = label;
+            this.avgQtyPerTrip = avgQtyPerTrip;
+            this.avgGpPerTrip = avgGpPerTrip;
+        }
+    }
+
+    public static final class CategoryDetail {
+        public final long gpPerHour;
+        public final long xpPerHour;
+        public final long avgNetProfitPerTrip;
+        public final long avgMissedPerTrip;
+        public final long avgTripDurationMillis;
+        public final double avgKillsPerTrip;
+        public final List<SupplyAverage> supplies;
+        public final long avgTotalSuppliesGpPerTrip;
+
+        public CategoryDetail(long gpPerHour, long xpPerHour, long avgNetProfitPerTrip,
+                              long avgMissedPerTrip, long avgTripDurationMillis, double avgKillsPerTrip,
+                              List<SupplyAverage> supplies, long avgTotalSuppliesGpPerTrip) {
+            this.gpPerHour = gpPerHour;
+            this.xpPerHour = xpPerHour;
+            this.avgNetProfitPerTrip = avgNetProfitPerTrip;
+            this.avgMissedPerTrip = avgMissedPerTrip;
+            this.avgTripDurationMillis = avgTripDurationMillis;
+            this.avgKillsPerTrip = avgKillsPerTrip;
+            this.supplies = supplies;
+            this.avgTotalSuppliesGpPerTrip = avgTotalSuppliesGpPerTrip;
         }
     }
 }
