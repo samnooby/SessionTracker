@@ -190,4 +190,28 @@ public class TripLedgerTest {
         assertEquals(Integer.valueOf(2), trip.suppliesUsed().get(ItemKey.item(560)));
         assertNull(trip.pickedUp().get(ItemKey.item(560)));
     }
+
+    @Test
+    public void droppingABroughtItemThenPickingItBackUpNetsToZero() {
+        TripLedger ledger = new TripLedger();
+        ledger.updateCarried(carried(ItemKey.item(1265), 1));              // brought a pickaxe
+        java.util.Set<ItemKey> dropped = new java.util.HashSet<>();
+        dropped.add(ItemKey.item(1265));
+        ledger.updateCarried(carried(), dropped);                          // drop it -> supply 1
+        ledger.updateCarried(carried(ItemKey.item(1265), 1));              // pick it back up
+        Trip trip = ledger.build("t1", 0, 60_000, false);
+        assertTrue(trip.suppliesUsed().isEmpty());                         // supply reversed
+        assertTrue(trip.pickedUp().isEmpty());                             // not loot either
+    }
+
+    @Test
+    public void brokenWhenDroppedBroughtItemIsNotRepickedStaysASupply() {
+        TripLedger ledger = new TripLedger();
+        ledger.updateCarried(carried(ItemKey.item(1265), 1));              // brought a pickaxe
+        java.util.Set<ItemKey> dropped = new java.util.HashSet<>();
+        dropped.add(ItemKey.item(1265));
+        ledger.updateCarried(carried(), dropped);                          // drop and leave it
+        Trip trip = ledger.build("t1", 0, 60_000, false);
+        assertEquals(Integer.valueOf(1), trip.suppliesUsed().get(ItemKey.item(1265)));
+    }
 }

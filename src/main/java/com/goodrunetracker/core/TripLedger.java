@@ -23,6 +23,9 @@ public final class TripLedger {
     private final Map<ItemKey, Integer> groundPool = new HashMap<>();
     private final Map<ItemKey, Integer> pickedUp = new HashMap<>();
     private final Map<ItemKey, Integer> suppliesUsed = new HashMap<>();
+    // Brought items that were dropped and charged as supplies, but are still on the ground
+    // and recoverable: picking one back up reverses that supply charge.
+    private final Map<ItemKey, Integer> droppedBrought = new HashMap<>();
     private final Map<String, Long> xp = new HashMap<>();
 
     private Map<ItemKey, Integer> carried = null;
@@ -68,35 +71,47 @@ public final class TripLedger {
     }
 
     private void reconcilePickup(ItemKey key, int gained) {
+        int remaining = gained;
+        // First, reverse any brought item we dropped earlier this trip: picking it back up
+        // undoes the supply we charged when it was dropped.
+        int broughtBack = Math.min(remaining, droppedBrought.getOrDefault(key, 0));
+        if (broughtBack > 0) {
+            decrement(suppliesUsed, key, broughtBack);
+            decrement(droppedBrought, key, broughtBack);
+            remaining -= broughtBack;
+        }
+        // Then, reconcile against kill loot still on the ground.
         int onGround = groundPool.getOrDefault(key, 0);
-        int fromGround = Math.min(gained, onGround);
-        if (fromGround <= 0) {
-            return; // untracked generic gain
+        int fromGround = Math.min(remaining, onGround);
+        if (fromGround > 0) {
+            pickedUp.merge(key, fromGround, Integer::sum);
+            decrement(groundPool, key, fromGround);
         }
-        pickedUp.merge(key, fromGround, Integer::sum);
-        int remaining = onGround - fromGround;
-        if (remaining == 0) {
-            groundPool.remove(key);
-        } else {
-            groundPool.put(key, remaining);
-        }
+        // Any further gain is an untracked generic gain.
     }
 
     private void reverseDrop(ItemKey key, int lost) {
         int pickedUpQty = pickedUp.getOrDefault(key, 0);
         int reversed = Math.min(lost, pickedUpQty);
         if (reversed > 0) {
-            int remaining = pickedUpQty - reversed;
-            if (remaining == 0) {
-                pickedUp.remove(key);
-            } else {
-                pickedUp.put(key, remaining);
-            }
+            decrement(pickedUp, key, reversed);
+            // Back on the ground so a later re-pickup reconciles as loot again.
             groundPool.merge(key, reversed, Integer::sum);
         }
         int brought = lost - reversed;
         if (brought > 0) {
             suppliesUsed.merge(key, brought, Integer::sum);
+            // Remember it's recoverable: picking it back up reverses this supply charge.
+            droppedBrought.merge(key, brought, Integer::sum);
+        }
+    }
+
+    private static void decrement(Map<ItemKey, Integer> map, ItemKey key, int amount) {
+        int remaining = map.getOrDefault(key, 0) - amount;
+        if (remaining <= 0) {
+            map.remove(key);
+        } else {
+            map.put(key, remaining);
         }
     }
 

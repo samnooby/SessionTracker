@@ -251,4 +251,30 @@ public class TrackingServiceTest {
         assertEquals(liveNet, trip.netProfit(frozen));
         assertEquals(500, liveNet);
     }
+
+    @Test
+    public void droppingABroughtItemThenPickingItUpClearsTheSupplyCharge() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        carried.carried.put(1265, 1);          // bring a pickaxe
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"));
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+
+        service.startSession();                 // baseline includes the pickaxe
+
+        service.markDropped(1265);              // drop it
+        carried.carried.remove(1265);
+        service.markCarriedDirty();
+        clock.now = 10_000;
+        service.onTick();                       // charged as a supply
+
+        carried.carried.put(1265, 1);           // pick it back up
+        service.markCarriedDirty();
+        clock.now = 20_000;
+        service.onTick();
+
+        TripSnapshot snap = service.currentSnapshot().get();
+        assertEquals(0, snap.suppliesGp);       // supply charge reversed
+        assertEquals(0, snap.pickedGp);         // not counted as loot either
+    }
 }
