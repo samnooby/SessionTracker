@@ -143,6 +143,29 @@ public class SessionHistoryTest {
     }
 
     @Test
+    public void recategorizeWritesThroughAndRefilesIntoStats() throws Exception {
+        Path root = Files.createTempDirectory("grt");
+        SessionStore store = new SessionStore(root);
+        ItemKey coins = ItemKey.item(560);
+        Map<ItemKey, Long> price = new HashMap<>();
+        price.put(coins, 1L);
+        save(store, "acct", "s", "Vorkath", "old name", 0, 3_600_000L,
+                Arrays.asList(trip("t1", 0, 3_600_000L, 1, qty(coins, 100), new HashMap<>(),
+                        new HashMap<>(), price)));
+
+        SessionHistory history = new SessionHistory(store, "acct", names);
+        history.rename("s", "new name");
+        history.recategorize("s", "Boss farming");
+
+        SessionHistory reloaded = new SessionHistory(store, "acct", names);
+        assertEquals("new name", reloaded.sessionsNewestFirst().get(0).name);
+        List<SessionHistory.CategoryStatsView> cats = reloaded.categoryStats();
+        assertEquals(1, cats.size());
+        assertEquals("Boss farming", cats.get(0).category);
+        assertTrue(reloaded.categories().contains("Boss farming"));
+    }
+
+    @Test
     public void categoryDetailAveragesSuppliesPerTripWithTotal() throws Exception {
         Path root = Files.createTempDirectory("grt");
         SessionStore store = new SessionStore(root);

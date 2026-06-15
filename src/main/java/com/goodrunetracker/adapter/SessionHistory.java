@@ -122,6 +122,32 @@ public final class SessionHistory {
                 supplies, avgTotalSupplies);
     }
 
+    public void rename(String sessionId, String newName) {
+        StoredSession s = find(sessionId);
+        if (s != null) {
+            s.name = newName;
+            store.save(s);
+        }
+    }
+
+    public void recategorize(String sessionId, String newCategory) {
+        StoredSession s = find(sessionId);
+        if (s != null) {
+            s.category = newCategory;
+            store.save(s);
+        }
+    }
+
+    public List<String> categories() {
+        java.util.TreeSet<String> distinct = new java.util.TreeSet<>();
+        for (StoredSession s : store.load(accountHash)) {
+            if (s.category != null) {
+                distinct.add(s.category);
+            }
+        }
+        return new ArrayList<>(distinct);
+    }
+
     private Map<String, List<Session>> sessionsByCategory() {
         Map<String, List<Session>> byCategory = new LinkedHashMap<>();
         for (StoredSession s : store.load(accountHash)) {
