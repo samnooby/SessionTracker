@@ -31,3 +31,14 @@ tasks.withType(JavaCompile) {
 test {
     useJUnit()
 }
+
+// Dev convenience: launch a RuneLite client with this plugin loaded.
+// Run from a terminal (or Cursor's integrated terminal) with: ./gradlew runClient
+// The plugin's dev runner and the RuneLite client both live on the test classpath.
+tasks.register('runClient', JavaExec) {
+    group = 'application'
+    description = 'Launch a development RuneLite client with the Good Rune Tracker plugin loaded'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.goodrunetracker.adapter.runelite.GoodRuneTrackerPluginRun'
+    args = ['--developer-mode']
+}
