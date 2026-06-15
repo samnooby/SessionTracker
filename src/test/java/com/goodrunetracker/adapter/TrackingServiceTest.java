@@ -1,6 +1,8 @@
 package com.goodrunetracker.adapter;
 
 import static org.junit.Assert.*;
+import com.goodrunetracker.core.Trip;
+import com.goodrunetracker.core.item.ItemKey;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -162,5 +164,37 @@ public class TrackingServiceTest {
         service.startSession();
         service.onXp("RANGED", 200_000); // must RE-PRIME, not count the 99_500 gap
         assertEquals(0, service.currentSnapshot().get().totalXp);
+    }
+
+    @Test
+    public void reloadedTripValuesIdenticallyToWhenRecorded() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        java.nio.file.Path root = Files.createTempDirectory("grt");
+        SessionStore store = new SessionStore(root);
+        ItemPriceSource prices = id -> id == 560 ? 5 : 1; // item 560 worth 5gp each
+        PotionRegistry potions = new PotionRegistry();
+        LiveItemValuer live = new LiveItemValuer(prices, potions);
+        TrackingService service = new TrackingService(clock, carried, id -> "Item " + id,
+                potions, live, store, new FakePanel(), "acct-A");
+
+        service.startSession();
+        Map<Integer, Integer> drop = new HashMap<>();
+        drop.put(560, 100);
+        service.onKill("Demonic gorilla", drop);
+        carried.carried.put(560, 100); // pick up all 100
+        service.markCarriedDirty();
+        clock.now = 60_000;
+        service.onTick();
+        TripSnapshot snap = service.currentSnapshot().get();
+        long liveNet = snap.pickedGp - snap.suppliesGp; // 100 * 5 = 500, no supplies
+        service.endSession();
+
+        StoredSession reloaded = store.load("acct-A").get(0);
+        StoredTrip storedTrip = reloaded.trips.get(0);
+        Trip trip = SessionMapper.toTrip(storedTrip);
+        FrozenItemValuer frozen = new FrozenItemValuer(SessionMapper.unitPrices(storedTrip));
+        assertEquals(liveNet, trip.netProfit(frozen));
+        assertEquals(500, liveNet);
     }
 }

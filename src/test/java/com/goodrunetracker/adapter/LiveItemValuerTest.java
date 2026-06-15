@@ -28,4 +28,14 @@ public class LiveItemValuerTest {
         LiveItemValuer valuer = new LiveItemValuer(pricesEqualId, new PotionRegistry());
         assertEquals(0, valuer.value(ItemKey.potion("Mystery brew"), 4));
     }
+
+    @Test
+    public void perDosePriceFloorsTowardZero() {
+        PotionRegistry registry = new PotionRegistry();
+        registry.observe(2434, "Prayer potion(4)"); // rep id 2434, dose 4
+        ItemPriceSource prices = id -> id == 2434 ? 1001 : 0; // 1001 / 4 = 250 floored
+        LiveItemValuer valuer = new LiveItemValuer(prices, registry);
+        assertEquals(250, valuer.unitValue(ItemKey.potion("Prayer potion")));
+        assertEquals(1000, valuer.value(ItemKey.potion("Prayer potion"), 4)); // 250*4, not 1001
+    }
 }

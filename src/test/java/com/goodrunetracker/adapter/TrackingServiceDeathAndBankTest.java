@@ -175,4 +175,23 @@ public class TrackingServiceDeathAndBankTest {
         // The unconfirmed dead trip must be dropped, not persisted as "kept".
         assertTrue(store.load("acct-A").isEmpty());
     }
+
+    @Test
+    public void twoNonEmptyTripsPersistInOneSession() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"));
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+
+        service.startSession();
+        killOnce(service, carried, clock);   // trip 1: kill + pickup
+        service.onBankOpened();              // persists trip 1, starts trip 2
+        killOnce(service, carried, clock);   // trip 2: kill + pickup
+        service.endSession();                // persists trip 2
+
+        StoredSession s = store.load("acct-A").get(0);
+        assertEquals(2, s.trips.size());
+        // session end time tracks the last trip's end
+        assertEquals(s.trips.get(1).endMillis, s.endMillis);
+    }
 }
