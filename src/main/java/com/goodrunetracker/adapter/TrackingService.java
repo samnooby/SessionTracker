@@ -30,6 +30,7 @@ public final class TrackingService {
     private final PanelView panel;
     private final String accountHash;
 
+    // Invariant: ledger != null implies activeSession != null (a trip only runs inside a session).
     private StoredSession activeSession;
     private TripLedger ledger;
     private String tripId;
@@ -37,7 +38,6 @@ public final class TrackingService {
     private boolean tripDied;
     private boolean inventoryDirty;
     private boolean awaitingDeathChoice;
-    private String firstKillNpc;
     private final Map<String, Long> lastXp = new HashMap<>();
 
     public TrackingService(Clock clock, CarriedSnapshotSupplier carried, IntFunction<String> names,
@@ -68,7 +68,6 @@ public final class TrackingService {
         activeSession.name = "";
         activeSession.startMillis = clock.nowMillis();
         activeSession.trips = new ArrayList<>();
-        firstKillNpc = null;
         startTrip();
     }
 
@@ -101,8 +100,10 @@ public final class TrackingService {
         if (ledger == null || awaitingDeathChoice) {
             return;
         }
-        if (firstKillNpc == null) {
-            firstKillNpc = npc;
+        // Default the session category to the first monster killed (user-editable later),
+        // so every persisted save carries a category, not just the final one.
+        if (activeSession.category == null) {
+            activeSession.category = npc;
         }
         ledger.recordKill(npc, normalize(rawDrops));
     }
@@ -143,7 +144,7 @@ public final class TrackingService {
             endTrip();
         }
         if (activeSession.category == null) {
-            activeSession.category = firstKillNpc != null ? firstKillNpc : "Uncategorized";
+            activeSession.category = "Uncategorized";
         }
         activeSession.endMillis = clock.nowMillis();
         if (!activeSession.trips.isEmpty()) {
@@ -151,7 +152,6 @@ public final class TrackingService {
         }
         activeSession = null;
         ledger = null;
-        firstKillNpc = null;
         panel.refresh();
     }
 
@@ -188,6 +188,7 @@ public final class TrackingService {
     }
 
     private Map<ItemKey, Integer> normalize(Map<Integer, Integer> raw) {
+        // Register potion families on the raw ids before they collapse into dose-keys.
         raw.forEach((id, qty) -> potions.observe(id, names.apply(id)));
         return CarriedNormalizer.normalize(raw, names);
     }
