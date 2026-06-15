@@ -1,9 +1,14 @@
 package com.goodrunetracker.adapter;
 
+import com.goodrunetracker.core.Session;
 import com.goodrunetracker.core.Trip;
 import com.goodrunetracker.core.item.ItemKey;
+import com.goodrunetracker.core.item.ItemValuer;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /** Converts a core {@link Trip} (plus captured unit prices) to/from its stored form. */
 public final class SessionMapper {
@@ -33,6 +38,27 @@ public final class SessionMapper {
                 decode(stored.dropped), decode(stored.pickedUp),
                 decode(stored.missed), decode(stored.suppliesUsed),
                 new HashMap<>(stored.xpGained));
+    }
+
+    public static Session toSession(StoredSession stored) {
+        List<Trip> trips = new ArrayList<>();
+        for (StoredTrip t : stored.trips) {
+            trips.add(toTrip(t));
+        }
+        return new Session(stored.id, stored.accountHash, stored.category, stored.name, trips);
+    }
+
+    /**
+     * A per-trip valuer: each trip is valued with a {@link FrozenItemValuer} over the unit
+     * prices captured when that trip ended. Trips not present in this session value to 0.
+     */
+    public static Function<Trip, ItemValuer> valuerFor(StoredSession stored) {
+        Map<String, ItemValuer> byTripId = new HashMap<>();
+        for (StoredTrip t : stored.trips) {
+            byTripId.put(t.id, new FrozenItemValuer(unitPrices(t)));
+        }
+        ItemValuer zero = (key, qty) -> 0L;
+        return trip -> byTripId.getOrDefault(trip.id(), zero);
     }
 
     public static Map<ItemKey, Long> unitPrices(StoredTrip stored) {
