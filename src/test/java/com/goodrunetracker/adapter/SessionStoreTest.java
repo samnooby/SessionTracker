@@ -71,4 +71,32 @@ public class SessionStoreTest {
         SessionStore store = new SessionStore(root);
         assertTrue(store.load("nobody").isEmpty());
     }
+
+    @Test
+    public void loadSkipsCorruptFilesAndReturnsTheValidOnes() throws Exception {
+        java.nio.file.Path root = java.nio.file.Files.createTempDirectory("grt-store");
+        SessionStore store = new SessionStore(root);
+        store.save(sampleSession("good", "acct-A"));
+
+        // Write a corrupt JSON file alongside the good one in the same account dir.
+        java.nio.file.Path dir = root.resolve("acct-A");
+        java.nio.file.Files.write(dir.resolve("broken.json"),
+                "{ this is not valid json".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        java.util.List<StoredSession> loaded = store.load("acct-A");
+        assertEquals(1, loaded.size());
+        assertEquals("good", loaded.get(0).id);
+    }
+
+    @Test
+    public void loadIgnoresNonJsonFiles() throws Exception {
+        java.nio.file.Path root = java.nio.file.Files.createTempDirectory("grt-store");
+        SessionStore store = new SessionStore(root);
+        store.save(sampleSession("good", "acct-A"));
+        java.nio.file.Path dir = root.resolve("acct-A");
+        java.nio.file.Files.write(dir.resolve("notes.txt"),
+                "hello".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        assertEquals(1, store.load("acct-A").size());
+    }
 }
