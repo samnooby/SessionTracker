@@ -15,9 +15,11 @@ def runeLiteVersion = 'latest.release'
 
 dependencies {
     compileOnly group: 'net.runelite', name: 'client', version: runeLiteVersion
+    compileOnly 'com.google.code.gson:gson:2.10.1'
 
     testImplementation group: 'net.runelite', name: 'client', version: runeLiteVersion
     testImplementation 'junit:junit:4.13.2'
+    testImplementation 'com.google.code.gson:gson:2.10.1'
 }
 
 // Compile to Java 11 bytecode (Plugin-Hub compatible) even on a newer JDK.

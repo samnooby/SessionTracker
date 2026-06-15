@@ -165,6 +165,11 @@ dose.
   for setups without an Ava's device). Ava's-saved ammo, which never leaves the
   slot, is counted correctly. The ledger classifies per settled game tick, so
   this only affects fire-then-recover-across-ticks.
+- **Looted-then-dropped item:** an item picked up as loot and then dropped again
+  mid-trip is counted as both picked-up loot and a supply used (net profit nets
+  to zero, but supplies-used is inflated). The ledger cannot distinguish a drop
+  from a consume. A precise fix needs RuneLite ground-item events and is planned
+  for Phase 2b; see `2026-06-14-phase2-runelite-adapter-design.md`.
 
 ### Rates
 
@@ -181,6 +186,10 @@ dose.
 - All sessions for the active account are loaded into memory on startup.
 - Writes occur on trip end, session end, and on any edit.
 - Edits (rename, recategorize, delete) rewrite only the affected session file.
+- **Valuation (refined in Phase 2):** each finished trip stores the GE unit
+  prices in effect at trip end alongside its quantities, so historical sessions
+  are valued as earned and never drift with the market. See
+  `2026-06-14-phase2-runelite-adapter-design.md`.
 
 ## UI — tabbed side panel
 
