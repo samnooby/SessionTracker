@@ -42,4 +42,8 @@ tasks.register('runClient', JavaExec) {
     mainClass = 'com.goodrunetracker.adapter.runelite.GoodRuneTrackerPluginRun'
     args = ['--developer-mode']
     enableAssertions = true  // RuneLite's dev plugin loader requires -ea
+    // RuneLite targets Java 11; on a newer JDK its macOS fullscreen adapter needs
+    // access to an internal Apple package that strong encapsulation otherwise blocks.
+    jvmArgs '--add-exports', 'java.desktop/com.apple.eawt=ALL-UNNAMED',
+            '--add-opens', 'java.desktop/com.apple.eawt=ALL-UNNAMED'
 }
