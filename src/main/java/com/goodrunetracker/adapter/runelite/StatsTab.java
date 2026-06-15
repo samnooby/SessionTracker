@@ -4,15 +4,21 @@ import com.goodrunetracker.adapter.GpFormat;
 import com.goodrunetracker.adapter.SessionHistory;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
+import java.awt.Color;
+import java.awt.Component;
 import java.awt.GridLayout;
 import java.util.List;
 import java.util.Locale;
+import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.border.EmptyBorder;
 import net.runelite.client.callback.ClientThread;
+import net.runelite.client.ui.FontManager;
 
 /** Per-category stats: GP/hr-sorted cards, drill-in to averages + exact supply breakdown. */
 final class StatsTab extends JPanel {
@@ -31,10 +37,16 @@ final class StatsTab extends JPanel {
 
     StatsTab(ClientThread clientThread) {
         this.clientThread = clientThread;
+        setBackground(Styles.PANEL);
         setLayout(new BorderLayout());
         root.setLayout(cards);
+        root.setBackground(Styles.PANEL);
         cardsBody.setLayout(new BoxLayout(cardsBody, BoxLayout.Y_AXIS));
+        cardsBody.setBackground(Styles.PANEL);
+        cardsBody.setBorder(new EmptyBorder(8, 8, 8, 8));
         detailBody.setLayout(new BoxLayout(detailBody, BoxLayout.Y_AXIS));
+        detailBody.setBackground(Styles.PANEL);
+        detailBody.setBorder(new EmptyBorder(8, 8, 8, 8));
         root.add(wrapNorth(cardsBody), CARDS);
         root.add(wrapNorth(detailBody), DETAIL);
         add(root, BorderLayout.CENTER);
@@ -43,6 +55,7 @@ final class StatsTab extends JPanel {
 
     private static JPanel wrapNorth(JPanel inner) {
         JPanel p = new JPanel(new BorderLayout());
+        p.setBackground(Styles.PANEL);
         p.add(inner, BorderLayout.NORTH);
         return p;
     }
@@ -55,14 +68,15 @@ final class StatsTab extends JPanel {
     void reload() {
         cardsBody.removeAll();
         if (history == null) {
-            cardsBody.add(new JLabel("Log in to view stats"));
+            cardsBody.add(Styles.keyLabel("Log in to view stats"));
         } else {
             List<SessionHistory.CategoryStatsView> stats = history.categoryStats();
             if (stats.isEmpty()) {
-                cardsBody.add(new JLabel("No sessions yet"));
+                cardsBody.add(Styles.keyLabel("No sessions yet"));
             }
             for (SessionHistory.CategoryStatsView c : stats) {
                 cardsBody.add(categoryCard(c));
+                cardsBody.add(Box.createVerticalStrut(5));
             }
         }
         cardsBody.revalidate();
@@ -70,12 +84,44 @@ final class StatsTab extends JPanel {
         cards.show(root, CARDS);
     }
 
-    private JButton categoryCard(SessionHistory.CategoryStatsView c) {
-        JButton b = new JButton("<html><b>" + c.category + "</b> ›<br>"
-                + GpFormat.format(c.gpPerHour) + " gp/hr · " + GpFormat.format(c.xpPerHour)
-                + " xp/hr<br>" + c.sessionCount + " sessions · " + c.tripCount + " trips</html>");
-        b.addActionListener(e -> showDetail(c.category));
-        return b;
+    private JPanel categoryCard(SessionHistory.CategoryStatsView c) {
+        JPanel card = Styles.card();
+
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(Styles.CARD);
+        header.setAlignmentX(Component.LEFT_ALIGNMENT);
+        JLabel name = new JLabel(c.category);
+        name.setFont(FontManager.getRunescapeBoldFont());
+        name.setForeground(Styles.TEXT);
+        header.add(name, BorderLayout.CENTER);
+        header.add(new JLabel(Styles.caret(Styles.CARET_RIGHT, Styles.SUBTEXT)), BorderLayout.EAST);
+        Styles.capHeight(header);
+        card.add(header);
+
+        String sessionWord = c.sessionCount == 1 ? "session" : "sessions";
+        String tripWord = c.tripCount == 1 ? "trip" : "trips";
+        JLabel meta = Styles.keyLabel(c.sessionCount + " " + sessionWord + " · " + c.tripCount + " " + tripWord);
+        meta.setAlignmentX(Component.LEFT_ALIGNMENT);
+        card.add(meta);
+        card.add(Box.createVerticalStrut(6));
+
+        card.add(tiles(c.gpPerHour, c.xpPerHour));
+
+        Styles.clickable(card, () -> showDetail(c.category));
+        return card;
+    }
+
+    /** A GP/hr (green, sign-aware) + XP/hr (blue) tile pair. */
+    private static JPanel tiles(long gpPerHour, long xpPerHour) {
+        JLabel gp = new JLabel(GpFormat.format(gpPerHour));
+        JLabel xp = new JLabel(GpFormat.format(xpPerHour));
+        JPanel row = new JPanel(new GridLayout(1, 2, 6, 0));
+        row.setBackground(Styles.CARD);
+        row.setAlignmentX(Component.LEFT_ALIGNMENT);
+        row.add(Styles.tile(gp, "GP/hr", gpPerHour < 0 ? Styles.NEG : Styles.GP));
+        row.add(Styles.tile(xp, "XP/hr", Styles.XP));
+        Styles.capHeight(row);
+        return row;
     }
 
     private void showDetail(String category) {
@@ -87,35 +133,82 @@ final class StatsTab extends JPanel {
 
     private void renderDetail(String category, SessionHistory.CategoryDetail d) {
         detailBody.removeAll();
-        JButton back = new JButton("‹ Back");
+
+        JButton back = Styles.linkButton("Back", Styles.ORANGE);
+        back.setIcon(Styles.caret(Styles.CARET_LEFT, Styles.ORANGE));
+        back.setIconTextGap(5);
+        back.setAlignmentX(Component.LEFT_ALIGNMENT);
         back.addActionListener(e -> cards.show(root, CARDS));
         detailBody.add(back);
-        detailBody.add(new JLabel("<html><b>" + category + "</b></html>"));
-        detailBody.add(new JLabel(GpFormat.format(d.gpPerHour) + " gp/hr · "
-                + GpFormat.format(d.xpPerHour) + " xp/hr"));
+        detailBody.add(Box.createVerticalStrut(6));
 
-        detailBody.add(new JLabel("Per-trip averages"));
-        JPanel avg = new JPanel(new GridLayout(0, 2));
-        avg.add(new JLabel("Net profit")); avg.add(new JLabel(GpFormat.format(d.avgNetProfitPerTrip)));
-        avg.add(new JLabel("Missed")); avg.add(new JLabel(GpFormat.format(d.avgMissedPerTrip)));
-        avg.add(new JLabel("Trip length")); avg.add(new JLabel(
-                (d.avgTripDurationMillis / MILLIS_PER_MINUTE) + "m"));
-        avg.add(new JLabel("Kills")); avg.add(new JLabel(
-                String.format(Locale.US, "%.1f", d.avgKillsPerTrip)));
-        detailBody.add(avg);
+        JLabel name = new JLabel(category);
+        name.setFont(FontManager.getRunescapeBoldFont());
+        name.setForeground(Styles.TEXT);
+        name.setAlignmentX(Component.LEFT_ALIGNMENT);
+        detailBody.add(name);
+        detailBody.add(Box.createVerticalStrut(4));
+        detailBody.add(tiles(d.gpPerHour, d.xpPerHour));
 
-        detailBody.add(new JLabel("Avg supplies / trip"));
-        JPanel sup = new JPanel(new GridLayout(0, 2));
+        detailBody.add(Styles.sectionHeader("Per-trip averages"));
+        JPanel avgCard = Styles.card();
+        JPanel avg = grid();
+        avg.add(Styles.keyLabel("Net profit"));
+        avg.add(signedValue(d.avgNetProfitPerTrip));
+        avg.add(Styles.keyLabel("Missed"));
+        JLabel missed = Styles.valueLabel(Styles.MISSED);
+        missed.setText(GpFormat.format(d.avgMissedPerTrip));
+        avg.add(missed);
+        avg.add(Styles.keyLabel("Trip length"));
+        JLabel len = Styles.valueLabel(Styles.TEXT);
+        len.setText((d.avgTripDurationMillis / MILLIS_PER_MINUTE) + "m");
+        avg.add(len);
+        avg.add(Styles.keyLabel("Kills"));
+        JLabel kills = Styles.valueLabel(Styles.TEXT);
+        kills.setText(String.format(Locale.US, "%.1f", d.avgKillsPerTrip));
+        avg.add(kills);
+        Styles.capHeight(avg);
+        avgCard.add(avg);
+        detailBody.add(avgCard);
+
+        detailBody.add(Styles.sectionHeader("Avg supplies / trip"));
+        JPanel supCard = Styles.card();
+        JPanel sup = grid();
         for (SessionHistory.SupplyAverage s : d.supplies) {
-            sup.add(new JLabel(s.label + "  " + String.format(Locale.US, "%.1f", s.avgQtyPerTrip)));
-            sup.add(new JLabel(GpFormat.format(s.avgGpPerTrip)));
+            sup.add(Styles.keyLabel(s.label + "  " + String.format(Locale.US, "%.1f", s.avgQtyPerTrip)));
+            JLabel v = Styles.valueLabel(Styles.NEG);
+            v.setText(GpFormat.format(s.avgGpPerTrip));
+            sup.add(v);
         }
-        sup.add(new JLabel("<html><b>Total</b></html>"));
-        sup.add(new JLabel("<html><b>" + GpFormat.format(d.avgTotalSuppliesGpPerTrip) + "</b></html>"));
-        detailBody.add(sup);
+        sup.add(boldLabel("Total", Styles.TEXT, SwingConstants.LEADING));
+        sup.add(boldLabel(GpFormat.format(d.avgTotalSuppliesGpPerTrip), Styles.NEG, SwingConstants.RIGHT));
+        Styles.capHeight(sup);
+        supCard.add(sup);
+        detailBody.add(supCard);
 
         detailBody.revalidate();
         detailBody.repaint();
         cards.show(root, DETAIL);
+    }
+
+    private static JPanel grid() {
+        JPanel g = new JPanel(new GridLayout(0, 2, 0, 3));
+        g.setBackground(Styles.CARD);
+        g.setAlignmentX(Component.LEFT_ALIGNMENT);
+        return g;
+    }
+
+    private static JLabel boldLabel(String text, Color color, int align) {
+        JLabel l = new JLabel(text);
+        l.setFont(FontManager.getRunescapeBoldFont());
+        l.setForeground(color);
+        l.setHorizontalAlignment(align);
+        return l;
+    }
+
+    private static JLabel signedValue(long value) {
+        JLabel l = Styles.valueLabel(value < 0 ? Styles.NEG : Styles.GP);
+        l.setText(GpFormat.format(value));
+        return l;
     }
 }
