@@ -96,7 +96,7 @@ public class GoodRuneTrackerPlugin extends Plugin {
                 store,
                 panel,
                 Long.toString(client.getAccountHash()));
-        panel.setService(service, true);
+        panel.setService(service, true, null);
     }
 
     @Subscribe
@@ -111,7 +111,7 @@ public class GoodRuneTrackerPlugin extends Plugin {
                 service.endSession();
                 service = null;
             }
-            panel.setService(null, false);
+            panel.setService(null, false, null);
         }
     }
 
