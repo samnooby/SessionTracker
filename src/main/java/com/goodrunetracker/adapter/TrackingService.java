@@ -119,6 +119,47 @@ public final class TrackingService {
         }
     }
 
+    public void onBankOpened() {
+        if (ledger == null || awaitingDeathChoice) {
+            return;
+        }
+        endTrip();
+        if (activeSession != null) {
+            startTrip();
+        }
+    }
+
+    public void discardTrip() {
+        ledger = null;
+        if (activeSession != null) {
+            startTrip();
+        }
+    }
+
+    public void onLocalPlayerDeath() {
+        if (ledger == null || awaitingDeathChoice) {
+            return;
+        }
+        tripDied = true;
+        awaitingDeathChoice = true; // stops onTick from feeding the post-death snapshot
+        panel.showDeathPrompt();
+    }
+
+    public void resolveDeath(boolean keep) {
+        if (!awaitingDeathChoice) {
+            return;
+        }
+        awaitingDeathChoice = false;
+        if (keep) {
+            endTrip();
+            if (activeSession != null) {
+                startTrip();
+            }
+        } else {
+            discardTrip();
+        }
+    }
+
     public Optional<TripSnapshot> currentSnapshot() {
         if (ledger == null) {
             return Optional.empty();
