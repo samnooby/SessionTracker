@@ -3,6 +3,7 @@ package com.goodrunetracker.adapter;
 import com.goodrunetracker.core.Trip;
 import com.goodrunetracker.core.TripLedger;
 import com.goodrunetracker.core.item.CarriedNormalizer;
+import com.goodrunetracker.core.item.Doses;
 import com.goodrunetracker.core.item.ItemKey;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -39,6 +40,7 @@ public final class TrackingService {
     private boolean inventoryDirty;
     private boolean awaitingDeathChoice;
     private final Map<String, Long> lastXp = new HashMap<>();
+    private final java.util.Set<ItemKey> droppedThisTick = new java.util.HashSet<>();
 
     // Snapshot valuation calls RuneLite's ItemManager, which must run on the client
     // thread. We compute it here (always invoked on the client thread) and cache a
@@ -93,14 +95,26 @@ public final class TrackingService {
         inventoryDirty = true;
     }
 
+    /** Record that the player just dropped this raw item id (from the "Drop" menu action). */
+    public void markDropped(int rawItemId) {
+        droppedThisTick.add(toKey(rawItemId));
+    }
+
+    private ItemKey toKey(int rawItemId) {
+        return Doses.parse(names.apply(rawItemId))
+                .map(form -> ItemKey.potion(form.family()))
+                .orElse(ItemKey.item(rawItemId));
+    }
+
     public void onTick() {
         if (ledger == null || awaitingDeathChoice) {
             return;
         }
         if (inventoryDirty) {
-            ledger.updateCarried(normalize(carried.currentCarried()));
+            ledger.updateCarried(normalize(carried.currentCarried()), droppedThisTick);
             inventoryDirty = false;
         }
+        droppedThisTick.clear();
         refreshCache();
         panel.refresh();
     }
