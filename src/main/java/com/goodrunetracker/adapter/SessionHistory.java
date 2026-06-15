@@ -6,11 +6,13 @@ import com.goodrunetracker.core.Trip;
 import com.goodrunetracker.core.item.ItemKey;
 import com.goodrunetracker.core.item.ItemValuer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.function.IntFunction;
 
 /**
@@ -35,7 +37,7 @@ public final class SessionHistory {
         List<SessionSummary> out = new ArrayList<>();
         for (StoredSession s : stored) {
             Session session = SessionMapper.toSession(s);
-            java.util.function.Function<Trip, ItemValuer> fn = SessionMapper.valuerFor(s);
+            Function<Trip, ItemValuer> fn = SessionMapper.valuerFor(s);
             out.add(new SessionSummary(s.id, s.name, s.category, s.trips.size(),
                     session.totalNetProfit(fn), session.gpPerHour(fn), session.totalXp(),
                     session.wallClockMillis(), s.startMillis));
@@ -89,19 +91,17 @@ public final class SessionHistory {
 
     public CategoryDetail categoryDetail(String category) {
         Map<String, List<Session>> byCategory = sessionsByCategory();
-        List<Session> sessions = byCategory.getOrDefault(category, new ArrayList<>());
-        java.util.function.Function<Trip, ItemValuer> fn = perTripValuer();
+        List<Session> sessions = byCategory.getOrDefault(category, Collections.emptyList());
+        Function<Trip, ItemValuer> fn = perTripValuer();
         CategoryStats cs = CategoryStats.from(category, sessions, fn);
+        int tripCount = cs.tripCount();
+        java.util.Map<ItemKey, Double> avgQtyByKey = cs.avgSuppliesPerTrip();
 
-        Map<ItemKey, Long> totalQty = new HashMap<>();
         Map<ItemKey, Long> totalGp = new HashMap<>();
-        int tripCount = 0;
         for (Session s : sessions) {
             for (Trip t : s.trips()) {
-                tripCount++;
                 ItemValuer v = fn.apply(t);
                 for (Map.Entry<ItemKey, Integer> e : t.suppliesUsed().entrySet()) {
-                    totalQty.merge(e.getKey(), e.getValue().longValue(), Long::sum);
                     totalGp.merge(e.getKey(), v.value(e.getKey(), e.getValue()), Long::sum);
                 }
             }
@@ -110,7 +110,7 @@ public final class SessionHistory {
         long totalSuppliesGp = 0;
         for (Map.Entry<ItemKey, Long> e : totalGp.entrySet()) {
             totalSuppliesGp += e.getValue();
-            double avgQty = tripCount == 0 ? 0 : (double) totalQty.get(e.getKey()) / tripCount;
+            double avgQty = avgQtyByKey.getOrDefault(e.getKey(), 0.0);
             long avgGp = tripCount == 0 ? 0 : e.getValue() / tripCount;
             supplies.add(new SupplyAverage(label(e.getKey()), avgQty, avgGp));
         }
@@ -130,16 +130,8 @@ public final class SessionHistory {
         return byCategory;
     }
 
-    /** A per-trip valuer spanning every stored trip (trip ids are unique across sessions). */
-    private java.util.function.Function<Trip, ItemValuer> perTripValuer() {
-        Map<String, ItemValuer> byTripId = new HashMap<>();
-        for (StoredSession s : store.load(accountHash)) {
-            for (StoredTrip st : s.trips) {
-                byTripId.put(st.id, new FrozenItemValuer(SessionMapper.unitPrices(st)));
-            }
-        }
-        ItemValuer zero = (key, q) -> 0L;
-        return trip -> byTripId.getOrDefault(trip.id(), zero);
+    private Function<Trip, ItemValuer> perTripValuer() {
+        return SessionMapper.valuerFor(store.load(accountHash));
     }
 
     private StoredSession find(String sessionId) {

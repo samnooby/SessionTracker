@@ -5,6 +5,7 @@ import com.goodrunetracker.core.Trip;
 import com.goodrunetracker.core.item.ItemKey;
 import com.goodrunetracker.core.item.ItemValuer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,14 +49,21 @@ public final class SessionMapper {
         return new Session(stored.id, stored.accountHash, stored.category, stored.name, trips);
     }
 
-    /**
-     * A per-trip valuer: each trip is valued with a {@link FrozenItemValuer} over the unit
-     * prices captured when that trip ended. Trips not present in this session value to 0.
-     */
     public static Function<Trip, ItemValuer> valuerFor(StoredSession stored) {
+        return valuerFor(Collections.singletonList(stored));
+    }
+
+    /**
+     * A per-trip valuer spanning every trip in the given sessions (trip ids are unique
+     * across sessions). Each trip is valued with a {@link FrozenItemValuer} over the unit
+     * prices stored for that trip; a trip whose id is absent values to 0.
+     */
+    public static Function<Trip, ItemValuer> valuerFor(List<StoredSession> sessions) {
         Map<String, ItemValuer> byTripId = new HashMap<>();
-        for (StoredTrip t : stored.trips) {
-            byTripId.put(t.id, new FrozenItemValuer(unitPrices(t)));
+        for (StoredSession s : sessions) {
+            for (StoredTrip t : s.trips) {
+                byTripId.put(t.id, new FrozenItemValuer(unitPrices(t)));
+            }
         }
         ItemValuer zero = (key, qty) -> 0L;
         return trip -> byTripId.getOrDefault(trip.id(), zero);
