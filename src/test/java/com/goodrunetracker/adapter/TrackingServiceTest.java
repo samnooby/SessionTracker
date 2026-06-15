@@ -167,6 +167,60 @@ public class TrackingServiceTest {
     }
 
     @Test
+    public void droppingALootedItemMovesItToMissedNotSupplies() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"));
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+
+        service.startSession();
+        Map<Integer, Integer> drop = new HashMap<>();
+        drop.put(560, 100);
+        service.onKill("Demonic gorilla", drop);
+        carried.carried.put(560, 100);
+        service.markCarriedDirty();
+        clock.now = 10_000;
+        service.onTick();
+
+        service.markDropped(560);
+        carried.carried.remove(560);
+        service.markCarriedDirty();
+        clock.now = 20_000;
+        service.onTick();
+
+        TripSnapshot snap = service.currentSnapshot().get();
+        assertEquals(0, snap.pickedGp);
+        assertEquals(100, snap.groundGp);
+        assertEquals(0, snap.suppliesGp);
+    }
+
+    @Test
+    public void consumingALootedItemStillCountsAsSupply() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"));
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+
+        service.startSession();
+        Map<Integer, Integer> drop = new HashMap<>();
+        drop.put(385, 4);
+        service.onKill("x", drop);
+        carried.carried.put(385, 4);
+        service.markCarriedDirty();
+        clock.now = 10_000;
+        service.onTick();
+
+        carried.carried.put(385, 1);   // eat 3, NO markDropped
+        service.markCarriedDirty();
+        clock.now = 20_000;
+        service.onTick();
+
+        TripSnapshot snap = service.currentSnapshot().get();
+        assertEquals(4, snap.pickedGp);
+        assertEquals(3, snap.suppliesGp);
+    }
+
+    @Test
     public void reloadedTripValuesIdenticallyToWhenRecorded() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
