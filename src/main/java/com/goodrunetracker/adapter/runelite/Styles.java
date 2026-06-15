@@ -12,6 +12,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import javax.swing.BoxLayout;
+import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
@@ -96,6 +97,18 @@ final class Styles {
         JLabel l = new JLabel(text);
         l.setFont(FontManager.getRunescapeSmallFont());
         l.setForeground(SUBTEXT);
+        return l;
+    }
+
+    /** A skill row label: the skill name, with its icon if one was supplied. */
+    static JLabel skillLabel(String skill, Icon icon) {
+        JLabel l = new JLabel(skill);
+        l.setFont(FontManager.getRunescapeSmallFont());
+        l.setForeground(SUBTEXT);
+        if (icon != null) {
+            l.setIcon(icon);
+            l.setIconTextGap(5);
+        }
         return l;
     }
 
