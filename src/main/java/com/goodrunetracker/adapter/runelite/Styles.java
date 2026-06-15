@@ -2,8 +2,17 @@ package com.goodrunetracker.adapter.runelite;
 
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Container;
+import java.awt.Cursor;
 import java.awt.Dimension;
+import java.awt.Graphics2D;
+import java.awt.Insets;
+import java.awt.RenderingHints;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.image.BufferedImage;
 import javax.swing.BoxLayout;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
@@ -101,5 +110,65 @@ final class Styles {
     /** Pins a component's max height to its preferred height (full width still allowed). */
     static void capHeight(JComponent c) {
         c.setMaximumSize(new Dimension(Integer.MAX_VALUE, c.getPreferredSize().height));
+    }
+
+    static final int CARET_RIGHT = 0;
+    static final int CARET_DOWN = 1;
+    static final int CARET_LEFT = 2;
+
+    /** A small drawn triangle caret (the pixel font has no arrow/chevron glyphs). */
+    static ImageIcon caret(int direction, Color color) {
+        int s = 8;
+        BufferedImage img = new BufferedImage(s, s, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.setColor(color);
+        if (direction == CARET_DOWN) {
+            g.fillPolygon(new int[]{0, s, s / 2}, new int[]{1, 1, s - 1}, 3);
+        } else if (direction == CARET_LEFT) {
+            g.fillPolygon(new int[]{s - 1, s - 1, 1}, new int[]{0, s, s / 2}, 3);
+        } else {
+            g.fillPolygon(new int[]{1, 1, s - 1}, new int[]{0, s, s / 2}, 3);
+        }
+        g.dispose();
+        return new ImageIcon(img);
+    }
+
+    /** A borderless, transparent text button for inline "Edit"/"Back"-style affordances. */
+    static JButton linkButton(String text, Color fg) {
+        JButton b = new JButton(text);
+        b.setFont(FontManager.getRunescapeSmallFont());
+        b.setForeground(fg);
+        b.setBorderPainted(false);
+        b.setContentAreaFilled(false);
+        b.setFocusPainted(false);
+        b.setMargin(new Insets(0, 0, 0, 0));
+        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        return b;
+    }
+
+    /** Makes a card-like row behave as one big button: click on the row or any non-button child fires. */
+    static void clickable(JPanel row, Runnable onClick) {
+        row.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        MouseAdapter ma = new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                onClick.run();
+            }
+        };
+        attach(row, ma);
+    }
+
+    private static void attach(Container c, MouseAdapter ma) {
+        c.addMouseListener(ma);
+        for (Component child : c.getComponents()) {
+            if (child instanceof JButton) {
+                continue;
+            }
+            child.addMouseListener(ma);
+            if (child instanceof Container) {
+                attach((Container) child, ma);
+            }
+        }
     }
 }
