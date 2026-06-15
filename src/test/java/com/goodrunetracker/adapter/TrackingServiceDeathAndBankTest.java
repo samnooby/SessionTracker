@@ -159,4 +159,20 @@ public class TrackingServiceDeathAndBankTest {
         service.onTick();
         assertEquals(1, service.currentSnapshot().get().kills); // proves onKill/onTick are live
     }
+
+    @Test
+    public void unresolvedDeathAtSessionEndDiscardsTheDeadTrip() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"));
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+
+        service.startSession();
+        killOnce(service, carried, clock);
+        service.onLocalPlayerDeath();   // unconfirmed death
+        service.endSession();           // ends before resolveDeath
+
+        // The unconfirmed dead trip must be dropped, not persisted as "kept".
+        assertTrue(store.load("acct-A").isEmpty());
+    }
 }

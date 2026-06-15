@@ -146,4 +146,21 @@ public class TrackingServiceTest {
         service.onXp("RANGED", 100_800);
         assertEquals(800, service.currentSnapshot().get().totalXp);
     }
+
+    @Test
+    public void xpBaselineResetsBetweenSessions() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"));
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+
+        service.startSession();
+        service.onXp("RANGED", 100_000);
+        service.onXp("RANGED", 100_500);
+        service.endSession();
+
+        service.startSession();
+        service.onXp("RANGED", 200_000); // must RE-PRIME, not count the 99_500 gap
+        assertEquals(0, service.currentSnapshot().get().totalXp);
+    }
 }

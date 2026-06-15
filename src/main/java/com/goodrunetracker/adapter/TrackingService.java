@@ -61,6 +61,7 @@ public final class TrackingService {
         if (activeSession != null) {
             return;
         }
+        lastXp.clear();
         activeSession = new StoredSession();
         activeSession.id = clock.newId();
         activeSession.accountHash = accountHash;
@@ -181,6 +182,12 @@ public final class TrackingService {
     public void endSession() {
         if (activeSession == null) {
             return;
+        }
+        if (awaitingDeathChoice) {
+            // Session ended with an unconfirmed death: drop the dead trip rather than
+            // persisting one the user never chose to keep.
+            ledger = null;
+            awaitingDeathChoice = false;
         }
         if (ledger != null) {
             endTrip();
