@@ -151,6 +151,9 @@ public final class GoodRuneTrackerPanel extends PluginPanel implements PanelView
         } else {
             status.setText(tracking ? "Tracking…" : "Ready");
         }
+        if (service == null || !loggedIn) {
+            deathPrompt.setVisible(false);
+        }
     }
 
     private void renderStats() {
