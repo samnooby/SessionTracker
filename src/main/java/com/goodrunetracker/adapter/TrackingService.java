@@ -46,6 +46,7 @@ public final class TrackingService {
     // thread. We compute it here (always invoked on the client thread) and cache a
     // plain value object the Swing panel can read from the EDT without touching the client.
     private TripSnapshot cachedSnapshot;
+    private SessionSnapshot cachedSessionSnapshot;
 
     public TrackingService(Clock clock, CarriedSnapshotSupplier carried, IntFunction<String> names,
                            PotionRegistry potions, LiveItemValuer valuer, SessionStore store,
@@ -194,9 +195,38 @@ public final class TrackingService {
         return Optional.ofNullable(cachedSnapshot);
     }
 
+    public String activeSessionId() {
+        return activeSession == null ? null : activeSession.id;
+    }
+
+    public Optional<SessionSnapshot> currentSessionSnapshot() {
+        return Optional.ofNullable(cachedSessionSnapshot);
+    }
+
+    public void renameActiveSession(String name) {
+        if (activeSession == null) {
+            return;
+        }
+        activeSession.name = name;
+        if (!activeSession.trips.isEmpty()) {
+            store.save(activeSession);
+        }
+    }
+
+    public void recategorizeActiveSession(String category) {
+        if (activeSession == null) {
+            return;
+        }
+        activeSession.category = category;
+        if (!activeSession.trips.isEmpty()) {
+            store.save(activeSession);
+        }
+    }
+
     /** Recompute the cached snapshot. MUST be called on the client thread (it values items). */
     private void refreshCache() {
         cachedSnapshot = ledger == null ? null : computeSnapshot();
+        cachedSessionSnapshot = activeSession == null ? null : computeSessionSnapshot();
     }
 
     private TripSnapshot computeSnapshot() {
@@ -211,6 +241,26 @@ public final class TrackingService {
         int tripNumber = activeSession.trips.size() + 1;
         return new TripSnapshot(tripNumber, duration, trip.totalKills(),
                 picked, ground, supplies, trip.totalXp(), gpPerHour);
+    }
+
+    private SessionSnapshot computeSessionSnapshot() {
+        long net = 0;
+        long xp = 0;
+        for (StoredTrip st : activeSession.trips) {
+            Trip t = SessionMapper.toTrip(st);
+            FrozenItemValuer frozen = new FrozenItemValuer(SessionMapper.unitPrices(st));
+            net += t.netProfit(frozen);
+            xp += t.totalXp();
+        }
+        int tripCount = activeSession.trips.size();
+        if (cachedSnapshot != null) {
+            net += cachedSnapshot.pickedGp - cachedSnapshot.suppliesGp;
+            xp += cachedSnapshot.totalXp;
+            tripCount += 1;
+        }
+        long wallClock = clock.nowMillis() - activeSession.startMillis;
+        long gpPerHour = wallClock <= 0 ? 0 : net * MILLIS_PER_HOUR / wallClock;
+        return new SessionSnapshot(tripCount, net, xp, gpPerHour);
     }
 
     public void endSession() {

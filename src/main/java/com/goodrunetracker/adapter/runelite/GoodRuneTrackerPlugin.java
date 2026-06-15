@@ -2,6 +2,7 @@ package com.goodrunetracker.adapter.runelite;
 
 import com.goodrunetracker.adapter.LiveItemValuer;
 import com.goodrunetracker.adapter.PotionRegistry;
+import com.goodrunetracker.adapter.SessionHistory;
 import com.goodrunetracker.adapter.SessionStore;
 import com.goodrunetracker.adapter.TrackingService;
 import com.google.inject.Provides;
@@ -96,7 +97,8 @@ public class GoodRuneTrackerPlugin extends Plugin {
                 store,
                 panel,
                 Long.toString(client.getAccountHash()));
-        panel.setService(service, true);
+        SessionHistory history = new SessionHistory(store, Long.toString(client.getAccountHash()), names);
+        panel.setService(service, true, history);
     }
 
     @Subscribe
@@ -111,7 +113,7 @@ public class GoodRuneTrackerPlugin extends Plugin {
                 service.endSession();
                 service = null;
             }
-            panel.setService(null, false);
+            panel.setService(null, false, null);
         }
     }
 

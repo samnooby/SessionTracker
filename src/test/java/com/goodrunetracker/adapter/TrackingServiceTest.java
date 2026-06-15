@@ -277,4 +277,59 @@ public class TrackingServiceTest {
         assertEquals(0, snap.suppliesGp);       // supply charge reversed
         assertEquals(0, snap.pickedGp);         // not counted as loot either
     }
+
+    @Test
+    public void sessionSnapshotRollsUpPersistedAndCurrentTrips() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"));
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+
+        service.startSession();
+        Map<Integer, Integer> drop = new HashMap<>();
+        drop.put(560, 100);
+        service.onKill("Vorkath", drop);
+        carried.carried.put(560, 100);
+        service.markCarriedDirty();
+        clock.now = 1_800_000L;
+        service.onTick();
+        service.onBankOpened();
+
+        service.onKill("Vorkath", drop);
+        carried.carried.put(560, 150);
+        service.markCarriedDirty();
+        clock.now = 3_600_000L;
+        service.onTick();
+
+        SessionSnapshot snap = service.currentSessionSnapshot().get();
+        assertEquals(2, snap.tripCount);
+        assertEquals(150L, snap.netProfit);
+        assertEquals(150L, snap.gpPerHour);
+    }
+
+    @Test
+    public void renameAndRecategorizeActiveSessionPersistAfterTripEnds() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"));
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+
+        service.startSession();
+        Map<Integer, Integer> drop = new HashMap<>();
+        drop.put(560, 100);
+        service.onKill("Vorkath", drop);
+        carried.carried.put(560, 100);
+        service.markCarriedDirty();
+        clock.now = 60_000;
+        service.onTick();
+        service.onBankOpened();
+
+        service.renameActiveSession("my grind");
+        service.recategorizeActiveSession("Bossing");
+
+        SessionHistory history = new SessionHistory(store, "acct-A", id -> "Item " + id);
+        SessionHistory.SessionSummary summary = history.sessionsNewestFirst().get(0);
+        assertEquals("my grind", summary.name);
+        assertEquals("Bossing", summary.category);
+    }
 }
