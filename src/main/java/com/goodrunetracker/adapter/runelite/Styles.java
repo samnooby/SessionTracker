@@ -160,9 +160,13 @@ final class Styles {
     }
 
     /**
-     * Makes a card-like row behave as one big button: a press on the row or any non-button
-     * child fires. Uses {@code mousePressed} (not {@code mouseClicked}) so a press/release
-     * landing on different child labels, or a pixel of mouse drift, still registers.
+     * Makes a card-like row behave as one big button: a press anywhere on the row — its
+     * background, padding, or any label — fires {@code onClick}. {@link JButton} children
+     * (and their subtrees) are skipped, so e.g. an inline "Edit" button keeps its own action.
+     *
+     * <p>Uses {@code mousePressed} (not {@code mouseClicked}) so a press/release on different
+     * child labels still registers, and attaches the listener exactly once per component so a
+     * press is never counted twice.
      */
     static void clickable(JPanel row, Runnable onClick) {
         row.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -175,15 +179,14 @@ final class Styles {
         attach(row, ma);
     }
 
-    private static void attach(Container c, MouseAdapter ma) {
+    private static void attach(Component c, MouseAdapter ma) {
+        if (c instanceof JButton) {
+            return;
+        }
         c.addMouseListener(ma);
-        for (Component child : c.getComponents()) {
-            if (child instanceof JButton) {
-                continue;
-            }
-            child.addMouseListener(ma);
-            if (child instanceof Container) {
-                attach((Container) child, ma);
+        if (c instanceof Container) {
+            for (Component child : ((Container) c).getComponents()) {
+                attach(child, ma);
             }
         }
     }
