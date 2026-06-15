@@ -21,6 +21,7 @@ import net.runelite.api.events.StatChanged;
 import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.widgets.InterfaceID;
 import net.runelite.client.RuneLite;
+import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.NpcLootReceived;
@@ -42,6 +43,7 @@ public class GoodRuneTrackerPlugin extends Plugin {
     @Inject private Client client;
     @Inject private ItemManager itemManager;
     @Inject private ClientToolbar clientToolbar;
+    @Inject private ClientThread clientThread;
     @Inject private GoodRuneTrackerConfig config;
 
     private GoodRuneTrackerPanel panel;
@@ -55,7 +57,7 @@ public class GoodRuneTrackerPlugin extends Plugin {
 
     @Override
     protected void startUp() {
-        panel = new GoodRuneTrackerPanel();
+        panel = new GoodRuneTrackerPanel(clientThread);
         BufferedImage icon = ImageUtil.loadImageResource(GoodRuneTrackerPlugin.class, "icon.png");
         navButton = NavigationButton.builder()
                 .tooltip("Good Rune Tracker")

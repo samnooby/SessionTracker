@@ -12,11 +12,13 @@ import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
+import net.runelite.client.callback.ClientThread;
 import net.runelite.client.ui.PluginPanel;
 
 /** Minimal control panel: start/stop tracking, end/discard trip, live readout, death prompt. */
 public final class GoodRuneTrackerPanel extends PluginPanel implements PanelView {
 
+    private final ClientThread clientThread;
     private TrackingService service;
     private boolean loggedIn;
 
@@ -35,7 +37,8 @@ public final class GoodRuneTrackerPanel extends PluginPanel implements PanelView
     private final JLabel xp = new JLabel("-");
     private final JLabel gpPerHour = new JLabel("-");
 
-    public GoodRuneTrackerPanel() {
+    public GoodRuneTrackerPanel(ClientThread clientThread) {
+        this.clientThread = clientThread;
         setLayout(new BorderLayout());
         JPanel body = new JPanel();
         body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
@@ -77,42 +80,50 @@ public final class GoodRuneTrackerPanel extends PluginPanel implements PanelView
     }
 
     private void wireButtons() {
-        endTrip.addActionListener(e -> {
+        // All lifecycle calls read game state (inventory/prices) via the service, which must
+        // run on the client thread — never the Swing EDT. The service pushes UI updates back
+        // via refresh()/showDeathPrompt() (which marshal to the EDT).
+        endTrip.addActionListener(e -> clientThread.invoke(() -> {
             if (service != null && service.isTracking()) {
                 service.onBankOpened();
             }
-        });
-        discardTrip.addActionListener(e -> {
+        }));
+        discardTrip.addActionListener(e -> clientThread.invoke(() -> {
             if (service != null && service.isTracking()) {
                 service.discardTrip();
             }
-        });
+        }));
         keepDeath.addActionListener(e -> {
-            if (service != null) {
-                service.resolveDeath(true);
-            }
             deathPrompt.setVisible(false);
             renderControls();
+            clientThread.invoke(() -> {
+                if (service != null) {
+                    service.resolveDeath(true);
+                }
+            });
         });
         discardDeath.addActionListener(e -> {
-            if (service != null) {
-                service.resolveDeath(false);
-            }
             deathPrompt.setVisible(false);
             renderControls();
+            clientThread.invoke(() -> {
+                if (service != null) {
+                    service.resolveDeath(false);
+                }
+            });
         });
     }
 
     private void onStartStop() {
-        if (service == null) {
-            return;
-        }
-        if (service.isTracking()) {
-            service.endSession();
-        } else {
-            service.startSession();
-        }
-        renderControls();
+        clientThread.invoke(() -> {
+            if (service == null) {
+                return;
+            }
+            if (service.isTracking()) {
+                service.endSession();
+            } else {
+                service.startSession();
+            }
+        });
     }
 
     /** Called by the plugin on login/logout. */

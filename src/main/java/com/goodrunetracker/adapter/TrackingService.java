@@ -40,6 +40,11 @@ public final class TrackingService {
     private boolean awaitingDeathChoice;
     private final Map<String, Long> lastXp = new HashMap<>();
 
+    // Snapshot valuation calls RuneLite's ItemManager, which must run on the client
+    // thread. We compute it here (always invoked on the client thread) and cache a
+    // plain value object the Swing panel can read from the EDT without touching the client.
+    private TripSnapshot cachedSnapshot;
+
     public TrackingService(Clock clock, CarriedSnapshotSupplier carried, IntFunction<String> names,
                            PotionRegistry potions, LiveItemValuer valuer, SessionStore store,
                            PanelView panel, String accountHash) {
@@ -80,6 +85,7 @@ public final class TrackingService {
         inventoryDirty = false;
         awaitingDeathChoice = false;
         ledger.updateCarried(normalize(carried.currentCarried()));
+        refreshCache();
         panel.refresh();
     }
 
@@ -95,6 +101,7 @@ public final class TrackingService {
             ledger.updateCarried(normalize(carried.currentCarried()));
             inventoryDirty = false;
         }
+        refreshCache();
         panel.refresh();
     }
 
@@ -108,6 +115,7 @@ public final class TrackingService {
             activeSession.category = npc;
         }
         ledger.recordKill(npc, normalize(rawDrops));
+        refreshCache();
     }
 
     public void onXp(String skill, long totalXp) {
@@ -118,6 +126,7 @@ public final class TrackingService {
         long delta = totalXp - previous;
         if (ledger != null && !awaitingDeathChoice && delta > 0) {
             ledger.recordXp(skill, delta);
+            refreshCache();
         }
     }
 
@@ -162,10 +171,21 @@ public final class TrackingService {
         }
     }
 
+    /**
+     * The latest cached snapshot. Safe to call from any thread (e.g. the Swing EDT) —
+     * it returns a precomputed value object and never touches the client. The cache is
+     * refreshed by {@link #refreshCache()} from the client thread after state changes.
+     */
     public Optional<TripSnapshot> currentSnapshot() {
-        if (ledger == null) {
-            return Optional.empty();
-        }
+        return Optional.ofNullable(cachedSnapshot);
+    }
+
+    /** Recompute the cached snapshot. MUST be called on the client thread (it values items). */
+    private void refreshCache() {
+        cachedSnapshot = ledger == null ? null : computeSnapshot();
+    }
+
+    private TripSnapshot computeSnapshot() {
         long now = clock.nowMillis();
         Trip trip = ledger.build(tripId, tripStartMillis, now, tripDied);
         long picked = trip.pickedUpValue(valuer);
@@ -175,8 +195,8 @@ public final class TrackingService {
         long net = picked - supplies;
         long gpPerHour = duration <= 0 ? 0 : net * MILLIS_PER_HOUR / duration;
         int tripNumber = activeSession.trips.size() + 1;
-        return Optional.of(new TripSnapshot(tripNumber, duration, trip.totalKills(),
-                picked, ground, supplies, trip.totalXp(), gpPerHour));
+        return new TripSnapshot(tripNumber, duration, trip.totalKills(),
+                picked, ground, supplies, trip.totalXp(), gpPerHour);
     }
 
     public void endSession() {
@@ -201,6 +221,7 @@ public final class TrackingService {
         }
         activeSession = null;
         ledger = null;
+        refreshCache();
         panel.refresh();
     }
 
