@@ -7,8 +7,10 @@ import com.goodrunetracker.adapter.TripSnapshot;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.GridLayout;
+import java.util.Map;
 import java.util.Optional;
 import javax.swing.Box;
+import javax.swing.Icon;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
@@ -22,6 +24,7 @@ final class NowTab extends JPanel {
     private static final long MILLIS_PER_HOUR = 3_600_000L;
 
     private final ClientThread clientThread;
+    private final Map<String, Icon> skillIcons;
     private TrackingService service;
     private boolean loggedIn;
 
@@ -49,8 +52,9 @@ final class NowTab extends JPanel {
     private final JButton keepDeath = Styles.button("Keep", Styles.CARD, Styles.TEXT);
     private final JButton discardDeath = Styles.button("Discard", Styles.CARD, Styles.NEG);
 
-    NowTab(ClientThread clientThread) {
+    NowTab(ClientThread clientThread, Map<String, Icon> skillIcons) {
         this.clientThread = clientThread;
+        this.skillIcons = skillIcons;
         setBackground(Styles.PANEL);
         setLayout(new BorderLayout());
 

@@ -10,7 +10,9 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
 import java.util.List;
+import java.util.Map;
 import javax.swing.Box;
+import javax.swing.Icon;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
@@ -28,6 +30,7 @@ final class SessionsTab extends JPanel {
     private static final String DETAIL = "detail";
 
     private final ClientThread clientThread;
+    private final Map<String, Icon> skillIcons;
     private final CardLayout cards = new CardLayout();
     private final JPanel root = new JPanel();
     private final JPanel listBody = new JPanel();
@@ -38,8 +41,9 @@ final class SessionsTab extends JPanel {
     private String expandedSessionId;
     private String editingSessionId;
 
-    SessionsTab(ClientThread clientThread) {
+    SessionsTab(ClientThread clientThread, Map<String, Icon> skillIcons) {
         this.clientThread = clientThread;
+        this.skillIcons = skillIcons;
         setBackground(Styles.PANEL);
         setLayout(new BorderLayout());
         root.setLayout(cards);
