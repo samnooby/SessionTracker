@@ -125,6 +125,19 @@ final class Styles {
         c.setMaximumSize(new Dimension(Integer.MAX_VALUE, c.getPreferredSize().height));
     }
 
+    /** Appends a bold key + bold right-aligned value (the "Total" footer row) to a 2-column grid. */
+    static void addBoldRow(JPanel grid, String key, String value, Color valueColor) {
+        JLabel k = new JLabel(key);
+        k.setFont(FontManager.getRunescapeBoldFont());
+        k.setForeground(TEXT);
+        JLabel v = new JLabel(value);
+        v.setFont(FontManager.getRunescapeBoldFont());
+        v.setForeground(valueColor);
+        v.setHorizontalAlignment(SwingConstants.RIGHT);
+        grid.add(k);
+        grid.add(v);
+    }
+
     static final int CARET_RIGHT = 0;
     static final int CARET_DOWN = 1;
     static final int CARET_LEFT = 2;

@@ -238,16 +238,9 @@ final class NowTab extends JPanel {
                 v.setText(GpFormat.format(s.xp));
                 xpBody.add(v);
             }
-            JLabel totalKey = new JLabel("Total");
-            totalKey.setFont(net.runelite.client.ui.FontManager.getRunescapeBoldFont());
-            totalKey.setForeground(Styles.TEXT);
-            JLabel totalVal = new JLabel(GpFormat.format(total));
-            totalVal.setFont(net.runelite.client.ui.FontManager.getRunescapeBoldFont());
-            totalVal.setForeground(Styles.XP);
-            totalVal.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
-            xpBody.add(totalKey);
-            xpBody.add(totalVal);
+            Styles.addBoldRow(xpBody, "Total", GpFormat.format(total), Styles.XP);
         }
+        Styles.capHeight(xpBody);
         xpBody.revalidate();
         xpBody.repaint();
     }

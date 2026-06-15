@@ -335,15 +335,7 @@ final class SessionsTab extends JPanel {
                 v.setText(GpFormat.format(s.xp));
                 grid.add(v);
             }
-            JLabel totalKey = new JLabel("Total");
-            totalKey.setFont(FontManager.getRunescapeBoldFont());
-            totalKey.setForeground(Styles.TEXT);
-            JLabel totalVal = new JLabel(GpFormat.format(total));
-            totalVal.setFont(FontManager.getRunescapeBoldFont());
-            totalVal.setForeground(Styles.XP);
-            totalVal.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
-            grid.add(totalKey);
-            grid.add(totalVal);
+            Styles.addBoldRow(grid, "Total", GpFormat.format(total), Styles.XP);
             Styles.capHeight(grid);
             card.add(grid);
         }
