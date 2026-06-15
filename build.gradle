@@ -41,4 +41,5 @@ tasks.register('runClient', JavaExec) {
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'com.goodrunetracker.adapter.runelite.GoodRuneTrackerPluginRun'
     args = ['--developer-mode']
+    enableAssertions = true  // RuneLite's dev plugin loader requires -ea
 }
