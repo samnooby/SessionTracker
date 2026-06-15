@@ -20,7 +20,7 @@ public final class GoodRuneTrackerPanel extends PluginPanel implements PanelView
     public GoodRuneTrackerPanel(ClientThread clientThread) {
         this.nowTab = new NowTab(clientThread);
         this.sessionsTab = new SessionsTab(clientThread);
-        this.statsTab = new StatsTab();
+        this.statsTab = new StatsTab(clientThread);
         setLayout(new BorderLayout());
         tabs.addTab("Now", nowTab);
         tabs.addTab("Sessions", sessionsTab);

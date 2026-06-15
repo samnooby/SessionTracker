@@ -11,6 +11,8 @@ import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
+import net.runelite.client.callback.ClientThread;
 
 /** Per-category stats: GP/hr-sorted cards, drill-in to averages + exact supply breakdown. */
 final class StatsTab extends JPanel {
@@ -19,6 +21,7 @@ final class StatsTab extends JPanel {
     private static final String DETAIL = "detail";
     private static final long MILLIS_PER_MINUTE = 60_000L;
 
+    private final ClientThread clientThread;
     private final CardLayout cards = new CardLayout();
     private final JPanel root = new JPanel();
     private final JPanel cardsBody = new JPanel();
@@ -26,7 +29,8 @@ final class StatsTab extends JPanel {
 
     private SessionHistory history;
 
-    StatsTab() {
+    StatsTab(ClientThread clientThread) {
+        this.clientThread = clientThread;
         setLayout(new BorderLayout());
         root.setLayout(cards);
         cardsBody.setLayout(new BoxLayout(cardsBody, BoxLayout.Y_AXIS));
@@ -75,7 +79,13 @@ final class StatsTab extends JPanel {
     }
 
     private void showDetail(String category) {
-        SessionHistory.CategoryDetail d = history.categoryDetail(category);
+        clientThread.invoke(() -> {
+            SessionHistory.CategoryDetail d = history.categoryDetail(category);
+            SwingUtilities.invokeLater(() -> renderDetail(category, d));
+        });
+    }
+
+    private void renderDetail(String category, SessionHistory.CategoryDetail d) {
         detailBody.removeAll();
         JButton back = new JButton("‹ Back");
         back.addActionListener(e -> cards.show(root, CARDS));

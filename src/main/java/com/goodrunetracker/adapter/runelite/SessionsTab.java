@@ -14,6 +14,7 @@ import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
 import net.runelite.client.callback.ClientThread;
 
 /** Sessions browser: accordion list (session -> trips) with drill-in trip detail and inline edit. */
@@ -156,7 +157,13 @@ final class SessionsTab extends JPanel {
     }
 
     private void showDetail(String sessionId, String tripId) {
-        SessionHistory.TripDetail d = history.tripDetail(sessionId, tripId);
+        clientThread.invoke(() -> {
+            SessionHistory.TripDetail d = history.tripDetail(sessionId, tripId);
+            SwingUtilities.invokeLater(() -> renderDetail(d));
+        });
+    }
+
+    private void renderDetail(SessionHistory.TripDetail d) {
         detailBody.removeAll();
         JButton back = new JButton("‹ Back");
         back.addActionListener(e -> cards.show(root, LIST));
