@@ -419,6 +419,10 @@ final class SessionsTab extends JPanel {
         JLabel avgXp = Styles.valueLabel(Styles.XP);
         avgXp.setText(GpFormat.format(s.avgXpPerTrip));
         grid.add(avgXp);
+        grid.add(Styles.keyLabel("Avg kills / trip"));
+        JLabel avgKills = Styles.valueLabel(Styles.TEXT);
+        avgKills.setText(String.format(java.util.Locale.US, "%.1f", s.avgKillsPerTrip));
+        grid.add(avgKills);
         Styles.capHeight(grid);
         card.add(grid);
 
