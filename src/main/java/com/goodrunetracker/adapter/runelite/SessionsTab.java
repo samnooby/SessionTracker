@@ -95,6 +95,8 @@ final class SessionsTab extends JPanel {
                     listBody.add(Box.createVerticalStrut(2));
                     listBody.add(editForm(s));
                 } else if (s.sessionId.equals(expandedSessionId)) {
+                    listBody.add(Box.createVerticalStrut(2));
+                    listBody.add(sessionSummaryCard(s));
                     List<SessionHistory.TripSummary> trips = history.tripsFor(s.sessionId);
                     for (int i = 0; i < trips.size(); i++) {
                         listBody.add(Box.createVerticalStrut(2));
@@ -392,6 +394,35 @@ final class SessionsTab extends JPanel {
             card.add(grid);
         }
         detailBody.add(card);
+    }
+
+    private JPanel sessionSummaryCard(SessionHistory.SessionSummary s) {
+        JPanel card = Styles.card();
+
+        JLabel gp = new JLabel(GpFormat.format(s.gpPerHour));
+        JLabel xp = new JLabel(GpFormat.format(s.xpPerHour));
+        JPanel tiles = new JPanel(new GridLayout(1, 2, 6, 0));
+        tiles.setBackground(Styles.CARD);
+        tiles.setAlignmentX(Component.LEFT_ALIGNMENT);
+        tiles.add(Styles.tile(gp, "GP/hr", s.gpPerHour < 0 ? Styles.NEG : Styles.GP));
+        tiles.add(Styles.tile(xp, "XP/hr", Styles.XP));
+        Styles.capHeight(tiles);
+        card.add(tiles);
+        card.add(Box.createVerticalStrut(6));
+
+        JPanel grid = new JPanel(new GridLayout(0, 2, 0, 3));
+        grid.setBackground(Styles.CARD);
+        grid.setAlignmentX(Component.LEFT_ALIGNMENT);
+        grid.add(Styles.keyLabel("Avg net / trip"));
+        grid.add(signedValue(s.avgNetProfitPerTrip));
+        grid.add(Styles.keyLabel("Avg XP / trip"));
+        JLabel avgXp = Styles.valueLabel(Styles.XP);
+        avgXp.setText(GpFormat.format(s.avgXpPerTrip));
+        grid.add(avgXp);
+        Styles.capHeight(grid);
+        card.add(grid);
+
+        return card;
     }
 
     private static JLabel signedValue(long value) {
