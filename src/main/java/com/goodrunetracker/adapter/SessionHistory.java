@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 
@@ -21,6 +22,8 @@ import java.util.function.IntFunction;
  * captured prices, and returns immutable view-model carriers the panel renders.
  */
 public final class SessionHistory {
+
+    private static final long MILLIS_PER_HOUR = 3_600_000L;
 
     private final SessionStore store;
     private final String accountHash;
@@ -123,9 +126,26 @@ public final class SessionHistory {
         supplies.sort(Comparator.comparingLong((SupplyAverage s) -> s.avgGpPerTrip).reversed());
         long avgTotalSupplies = tripCount == 0 ? 0 : totalSuppliesGp / tripCount;
 
+        Map<String, Long> skillTotalXp = new TreeMap<>(); // TreeMap -> alphabetical
+        long totalWallClock = 0;
+        for (Session s : sessions) {
+            totalWallClock += s.wallClockMillis();
+            for (Trip t : s.trips()) {
+                for (Map.Entry<String, Long> e : t.xpGained().entrySet()) {
+                    skillTotalXp.merge(e.getKey(), e.getValue(), Long::sum);
+                }
+            }
+        }
+        List<SkillXpAverage> xpAverages = new ArrayList<>();
+        for (Map.Entry<String, Long> e : skillTotalXp.entrySet()) {
+            long avgTrip = tripCount == 0 ? 0 : e.getValue() / tripCount;
+            long perHour = totalWallClock <= 0 ? 0 : e.getValue() * MILLIS_PER_HOUR / totalWallClock;
+            xpAverages.add(new SkillXpAverage(e.getKey(), avgTrip, perHour));
+        }
+
         return new CategoryDetail(cs.gpPerHour(), cs.xpPerHour(), cs.avgNetProfitPerTrip(),
                 cs.avgMissedPerTrip(), cs.avgTripDurationMillis(), cs.avgKillsPerTrip(),
-                supplies, avgTotalSupplies);
+                supplies, avgTotalSupplies, xpAverages);
     }
 
     public void rename(String sessionId, String newName) {
@@ -308,6 +328,18 @@ public final class SessionHistory {
         }
     }
 
+    public static final class SkillXpAverage {
+        public final String skill;
+        public final long avgXpPerTrip;
+        public final long xpPerHour;
+
+        public SkillXpAverage(String skill, long avgXpPerTrip, long xpPerHour) {
+            this.skill = skill;
+            this.avgXpPerTrip = avgXpPerTrip;
+            this.xpPerHour = xpPerHour;
+        }
+    }
+
     public static final class CategoryDetail {
         public final long gpPerHour;
         public final long xpPerHour;
@@ -317,10 +349,12 @@ public final class SessionHistory {
         public final double avgKillsPerTrip;
         public final List<SupplyAverage> supplies;
         public final long avgTotalSuppliesGpPerTrip;
+        public final List<SkillXpAverage> xpAverages;
 
         public CategoryDetail(long gpPerHour, long xpPerHour, long avgNetProfitPerTrip,
                               long avgMissedPerTrip, long avgTripDurationMillis, double avgKillsPerTrip,
-                              List<SupplyAverage> supplies, long avgTotalSuppliesGpPerTrip) {
+                              List<SupplyAverage> supplies, long avgTotalSuppliesGpPerTrip,
+                              List<SkillXpAverage> xpAverages) {
             this.gpPerHour = gpPerHour;
             this.xpPerHour = xpPerHour;
             this.avgNetProfitPerTrip = avgNetProfitPerTrip;
@@ -329,6 +363,7 @@ public final class SessionHistory {
             this.avgKillsPerTrip = avgKillsPerTrip;
             this.supplies = supplies;
             this.avgTotalSuppliesGpPerTrip = avgTotalSuppliesGpPerTrip;
+            this.xpAverages = xpAverages;
         }
     }
 }

@@ -237,6 +237,35 @@ public class SessionHistoryTest {
     }
 
     @Test
+    public void categoryDetailListsPerSkillXpAverages() throws Exception {
+        Path root = Files.createTempDirectory("grt");
+        SessionStore store = new SessionStore(root);
+        Map<String, Long> xpA = new HashMap<>();
+        xpA.put("Attack", 200L);
+        xpA.put("Ranged", 100L);
+        Map<String, Long> xpB = new HashMap<>();
+        xpB.put("Attack", 200L);
+        Trip t1 = new Trip("t1", 0, 1_800_000L, false, new HashMap<>(), new HashMap<>(),
+                new HashMap<>(), new HashMap<>(), new HashMap<>(), xpA);
+        Trip t2 = new Trip("t2", 1_800_000L, 3_600_000L, false, new HashMap<>(), new HashMap<>(),
+                new HashMap<>(), new HashMap<>(), new HashMap<>(), xpB);
+        save(store, "acct", "s", "Vorkath", "", 0, 3_600_000L,
+                Arrays.asList(SessionMapper.toStored(t1, new HashMap<>()),
+                        SessionMapper.toStored(t2, new HashMap<>())));
+
+        SessionHistory history = new SessionHistory(store, "acct", names);
+        SessionHistory.CategoryDetail d = history.categoryDetail("Vorkath");
+
+        assertEquals(2, d.xpAverages.size());
+        assertEquals("Attack", d.xpAverages.get(0).skill);
+        assertEquals(200L, d.xpAverages.get(0).avgXpPerTrip);
+        assertEquals(400L, d.xpAverages.get(0).xpPerHour);
+        assertEquals("Ranged", d.xpAverages.get(1).skill);
+        assertEquals(50L, d.xpAverages.get(1).avgXpPerTrip);
+        assertEquals(100L, d.xpAverages.get(1).xpPerHour);
+    }
+
+    @Test
     public void categoryDetailAveragesSuppliesPerTripWithTotal() throws Exception {
         Path root = Files.createTempDirectory("grt");
         SessionStore store = new SessionStore(root);
