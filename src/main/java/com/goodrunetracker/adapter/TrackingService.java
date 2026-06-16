@@ -241,7 +241,7 @@ public final class TrackingService {
         int tripNumber = activeSession.trips.size() + 1;
         return new TripSnapshot(tripNumber, duration, trip.totalKills(),
                 picked, ground, supplies, trip.totalXp(), gpPerHour,
-                SkillXp.sortedFrom(trip.xpGained()));
+                SkillXp.sortedFrom(trip.xpGained()), NpcKills.sortedByCountDesc(trip.kills()));
     }
 
     private SessionSnapshot computeSessionSnapshot() {
