@@ -38,9 +38,14 @@ public final class SessionHistory {
         for (StoredSession s : stored) {
             Session session = SessionMapper.toSession(s);
             Function<Trip, ItemValuer> fn = SessionMapper.valuerFor(s);
-            out.add(new SessionSummary(s.id, s.name, s.category, s.trips.size(),
-                    session.totalNetProfit(fn), session.gpPerHour(fn), session.totalXp(),
-                    session.wallClockMillis(), s.startMillis));
+            int tripCount = s.trips.size();
+            long net = session.totalNetProfit(fn);
+            long xpTotal = session.totalXp();
+            long avgNet = tripCount == 0 ? 0 : net / tripCount;
+            long avgXp = tripCount == 0 ? 0 : xpTotal / tripCount;
+            out.add(new SessionSummary(s.id, s.name, s.category, tripCount,
+                    net, session.gpPerHour(fn), xpTotal, session.wallClockMillis(), s.startMillis,
+                    session.xpPerHour(), avgNet, avgXp));
         }
         out.sort(Comparator.comparingLong((SessionSummary s) -> s.startMillis).reversed());
         return out;
@@ -196,10 +201,14 @@ public final class SessionHistory {
         public final long xpTotal;
         public final long wallClockMillis;
         public final long startMillis;
+        public final long xpPerHour;
+        public final long avgNetProfitPerTrip;
+        public final long avgXpPerTrip;
 
         public SessionSummary(String sessionId, String name, String category, int tripCount,
                               long netProfit, long gpPerHour, long xpTotal, long wallClockMillis,
-                              long startMillis) {
+                              long startMillis, long xpPerHour, long avgNetProfitPerTrip,
+                              long avgXpPerTrip) {
             this.sessionId = sessionId;
             this.name = name;
             this.category = category;
@@ -209,6 +218,9 @@ public final class SessionHistory {
             this.xpTotal = xpTotal;
             this.wallClockMillis = wallClockMillis;
             this.startMillis = startMillis;
+            this.xpPerHour = xpPerHour;
+            this.avgNetProfitPerTrip = avgNetProfitPerTrip;
+            this.avgXpPerTrip = avgXpPerTrip;
         }
     }
 

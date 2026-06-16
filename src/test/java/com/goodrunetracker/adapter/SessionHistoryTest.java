@@ -210,6 +210,33 @@ public class SessionHistoryTest {
     }
 
     @Test
+    public void sessionSummaryExposesPerSessionAverages() throws Exception {
+        Path root = Files.createTempDirectory("grt");
+        SessionStore store = new SessionStore(root);
+        ItemKey coins = ItemKey.item(560);
+        Map<ItemKey, Long> price = new HashMap<>();
+        price.put(coins, 1L);
+        Map<String, Long> xp = new HashMap<>();
+        xp.put("Attack", 400L);
+        Trip t1 = new Trip("t1", 0, 1_800_000L, false, new HashMap<>(), new HashMap<>(),
+                qty(coins, 100), new HashMap<>(), new HashMap<>(), xp);
+        Trip t2 = new Trip("t2", 1_800_000L, 3_600_000L, false, new HashMap<>(), new HashMap<>(),
+                qty(coins, 100), new HashMap<>(), new HashMap<>(), xp);
+        save(store, "acct", "s", "Vorkath", "", 0, 3_600_000L,
+                Arrays.asList(SessionMapper.toStored(t1, price), SessionMapper.toStored(t2, price)));
+
+        SessionHistory history = new SessionHistory(store, "acct", names);
+        SessionHistory.SessionSummary sum = history.sessionsNewestFirst().get(0);
+
+        assertEquals(2, sum.tripCount);
+        assertEquals(200L, sum.netProfit);
+        assertEquals(100L, sum.avgNetProfitPerTrip); // 200 / 2
+        assertEquals(800L, sum.xpTotal);             // 400 + 400
+        assertEquals(400L, sum.avgXpPerTrip);        // 800 / 2
+        assertEquals(800L, sum.xpPerHour);           // 800 xp over 1h wall-clock
+    }
+
+    @Test
     public void categoryDetailAveragesSuppliesPerTripWithTotal() throws Exception {
         Path root = Files.createTempDirectory("grt");
         SessionStore store = new SessionStore(root);
