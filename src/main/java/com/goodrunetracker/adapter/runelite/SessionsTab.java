@@ -1,6 +1,7 @@
 package com.goodrunetracker.adapter.runelite;
 
 import com.goodrunetracker.adapter.GpFormat;
+import com.goodrunetracker.adapter.NpcKills;
 import com.goodrunetracker.adapter.SessionHistory;
 import com.goodrunetracker.adapter.SkillXp;
 import com.goodrunetracker.adapter.TrackingService;
@@ -306,6 +307,8 @@ final class SessionsTab extends JPanel {
             summary.add(grid);
             detailBody.add(summary);
 
+            addKillsGroup(d.killsByNpc);
+
             addGroup("Picked up", d.pickedUp, Styles.GP);
             addGroup("Left on ground", d.leftOnGround, Styles.MISSED);
             addGroup("Supplies used", d.suppliesUsed, Styles.NEG);
@@ -314,6 +317,32 @@ final class SessionsTab extends JPanel {
         detailBody.revalidate();
         detailBody.repaint();
         cards.show(root, DETAIL);
+    }
+
+    private void addKillsGroup(List<NpcKills> kills) {
+        detailBody.add(Styles.sectionHeader("Kills"));
+        JPanel card = Styles.card();
+        if (kills == null || kills.isEmpty()) {
+            JLabel none = Styles.keyLabel("None");
+            none.setAlignmentX(Component.LEFT_ALIGNMENT);
+            card.add(none);
+        } else {
+            JPanel grid = new JPanel(new GridLayout(0, 2, 0, 3));
+            grid.setBackground(Styles.CARD);
+            grid.setAlignmentX(Component.LEFT_ALIGNMENT);
+            int total = 0;
+            for (NpcKills k : kills) {
+                total += k.count;
+                grid.add(Styles.keyLabel(k.npc));
+                JLabel v = Styles.valueLabel(Styles.TEXT);
+                v.setText(Integer.toString(k.count));
+                grid.add(v);
+            }
+            Styles.addBoldRow(grid, "Total", Integer.toString(total), Styles.TEXT);
+            Styles.capHeight(grid);
+            card.add(grid);
+        }
+        detailBody.add(card);
     }
 
     private void addXpGroup(List<SkillXp> xp) {

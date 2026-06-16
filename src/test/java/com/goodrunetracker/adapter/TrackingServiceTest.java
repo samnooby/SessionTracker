@@ -339,6 +339,38 @@ public class TrackingServiceTest {
     }
 
     @Test
+    public void snapshotKillsByNpcIsEmptyBeforeAnyKill() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"));
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+        service.startSession();
+        assertTrue(service.currentSnapshot().get().killsByNpc.isEmpty());
+    }
+
+    @Test
+    public void snapshotListsKillsByNpcMostKilledFirst() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"));
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+        service.startSession();
+        Map<Integer, Integer> noDrop = new HashMap<>();
+        service.onKill("Goblin", noDrop);
+        service.onKill("Bird", noDrop);
+        service.onKill("Goblin", noDrop);
+        service.onKill("Goblin", noDrop);
+
+        TripSnapshot snap = service.currentSnapshot().get();
+        assertEquals(2, snap.killsByNpc.size());
+        assertEquals("Goblin", snap.killsByNpc.get(0).npc);
+        assertEquals(3, snap.killsByNpc.get(0).count);
+        assertEquals("Bird", snap.killsByNpc.get(1).npc);
+        assertEquals(1, snap.killsByNpc.get(1).count);
+        assertEquals(4, snap.kills);
+    }
+
+    @Test
     public void renameAndRecategorizeActiveSessionPersistAfterTripEnds() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();

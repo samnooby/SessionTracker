@@ -1,6 +1,7 @@
 package com.goodrunetracker.adapter.runelite;
 
 import com.goodrunetracker.adapter.GpFormat;
+import com.goodrunetracker.adapter.NpcKills;
 import com.goodrunetracker.adapter.SessionSnapshot;
 import com.goodrunetracker.adapter.SkillXp;
 import com.goodrunetracker.adapter.TrackingService;
@@ -40,7 +41,6 @@ final class NowTab extends JPanel {
 
     private final JLabel tripGpHr = new JLabel("-");
     private final JLabel tripXpHr = new JLabel("-");
-    private final JLabel kills = Styles.valueLabel(Styles.TEXT);
     private final JLabel picked = Styles.valueLabel(Styles.GP);
     private final JLabel ground = Styles.valueLabel(Styles.MISSED);
     private final JLabel supplies = Styles.valueLabel(Styles.NEG);
@@ -51,6 +51,7 @@ final class NowTab extends JPanel {
     private final JLabel sessGpHr = Styles.valueLabel(Styles.GP);
 
     private final JPanel xpBody = new JPanel(new GridLayout(0, 2, 0, 3));
+    private final JPanel killsBody = new JPanel(new GridLayout(0, 2, 0, 3));
 
     private final JPanel deathPrompt = Styles.card();
     private final JButton keepDeath = Styles.button("Keep", Styles.CARD, Styles.TEXT);
@@ -73,6 +74,9 @@ final class NowTab extends JPanel {
 
         body.add(Styles.sectionHeader("Current trip"));
         body.add(currentCard());
+
+        body.add(Styles.sectionHeader("Kills"));
+        body.add(killsCard());
 
         body.add(Styles.sectionHeader("XP gained"));
         body.add(xpCard());
@@ -184,8 +188,6 @@ final class NowTab extends JPanel {
         JPanel grid = new JPanel(new GridLayout(0, 2, 0, 3));
         grid.setBackground(Styles.CARD);
         grid.setAlignmentX(Component.LEFT_ALIGNMENT);
-        grid.add(Styles.keyLabel("Kills"));
-        grid.add(kills);
         grid.add(Styles.keyLabel("Loot picked"));
         grid.add(picked);
         grid.add(Styles.keyLabel("On ground"));
@@ -204,6 +206,35 @@ final class NowTab extends JPanel {
         xpBody.setAlignmentX(Component.LEFT_ALIGNMENT);
         card.add(xpBody);
         return card;
+    }
+
+    private JPanel killsCard() {
+        JPanel card = Styles.card();
+        killsBody.setBackground(Styles.CARD);
+        killsBody.setAlignmentX(Component.LEFT_ALIGNMENT);
+        card.add(killsBody);
+        return card;
+    }
+
+    private void renderKills(List<NpcKills> kills) {
+        killsBody.removeAll();
+        if (kills == null || kills.isEmpty()) {
+            killsBody.add(Styles.keyLabel("None"));
+            killsBody.add(new JLabel(""));
+        } else {
+            int total = 0;
+            for (NpcKills k : kills) {
+                total += k.count;
+                killsBody.add(Styles.keyLabel(k.npc));
+                JLabel v = Styles.valueLabel(Styles.TEXT);
+                v.setText(Integer.toString(k.count));
+                killsBody.add(v);
+            }
+            Styles.addBoldRow(killsBody, "Total", Integer.toString(total), Styles.TEXT);
+        }
+        Styles.capHeight(killsBody);
+        killsBody.revalidate();
+        killsBody.repaint();
     }
 
     private JPanel sessionCard() {
@@ -311,22 +342,22 @@ final class NowTab extends JPanel {
             setSigned(tripGpHr, s.gpPerHour);
             long xpHr = s.durationMillis > 0 ? s.totalXp * MILLIS_PER_HOUR / s.durationMillis : 0;
             tripXpHr.setText(GpFormat.format(xpHr));
-            kills.setText(Integer.toString(s.kills));
             picked.setText(GpFormat.format(s.pickedGp));
             ground.setText(GpFormat.format(s.groundGp));
             supplies.setText(GpFormat.format(s.suppliesGp));
             elapsed.setText(formatElapsed(s.durationMillis));
             renderXp(s.xpBySkill);
+            renderKills(s.killsByNpc);
         } else {
             tripGpHr.setText("-");
             tripGpHr.setForeground(Styles.GP);
             tripXpHr.setText("-");
-            kills.setText("-");
             picked.setText("-");
             ground.setText("-");
             supplies.setText("-");
             elapsed.setText("");
             renderXp(null);
+            renderKills(null);
         }
         Optional<SessionSnapshot> sess = service == null ? Optional.empty() : service.currentSessionSnapshot();
         if (sess.isPresent()) {

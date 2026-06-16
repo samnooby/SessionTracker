@@ -188,6 +188,28 @@ public class SessionHistoryTest {
     }
 
     @Test
+    public void tripDetailListsKillsByNpcMostKilledFirst() throws Exception {
+        Path root = Files.createTempDirectory("grt");
+        SessionStore store = new SessionStore(root);
+        Map<String, Integer> kills = new HashMap<>();
+        kills.put("Goblin", 20);
+        kills.put("Bird", 10);
+        Trip t = new Trip("t1", 0, 60_000, false, kills, new HashMap<>(),
+                new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>());
+        StoredTrip st = SessionMapper.toStored(t, new HashMap<>());
+        save(store, "acct", "s", "Vorkath", "", 0, 60_000, Arrays.asList(st));
+
+        SessionHistory history = new SessionHistory(store, "acct", names);
+        SessionHistory.TripDetail d = history.tripDetail("s", "t1");
+
+        assertEquals(2, d.killsByNpc.size());
+        assertEquals("Goblin", d.killsByNpc.get(0).npc);
+        assertEquals(20, d.killsByNpc.get(0).count);
+        assertEquals("Bird", d.killsByNpc.get(1).npc);
+        assertEquals(10, d.killsByNpc.get(1).count);
+    }
+
+    @Test
     public void categoryDetailAveragesSuppliesPerTripWithTotal() throws Exception {
         Path root = Files.createTempDirectory("grt");
         SessionStore store = new SessionStore(root);
