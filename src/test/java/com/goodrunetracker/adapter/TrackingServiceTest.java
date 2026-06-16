@@ -371,6 +371,44 @@ public class TrackingServiceTest {
     }
 
     @Test
+    public void stashingRunesIntoThePouchIsNotASupply() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        carried.carried.put(556, 100); // 100 air runes carried (inventory or pouch -- combined)
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"));
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+
+        service.startSession(); // baseline: 556 -> 100
+
+        // Stash all 100 runes into the pouch: combined total is unchanged.
+        carried.carried.put(556, 100);
+        service.markCarriedDirty();
+        clock.now = 10_000;
+        service.onTick();
+
+        assertEquals(0, service.currentSnapshot().get().suppliesGp);
+    }
+
+    @Test
+    public void castingRunesFromThePouchIsASupply() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        carried.carried.put(556, 100);
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"));
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+
+        service.startSession(); // baseline: 556 -> 100
+
+        // Cast 3 runes from the pouch: combined total drops by 3, no inventory event needed.
+        carried.carried.put(556, 97);
+        service.markCarriedDirty();
+        clock.now = 10_000;
+        service.onTick();
+
+        assertEquals(3, service.currentSnapshot().get().suppliesGp); // oneGp valuer -> 3 runes = 3
+    }
+
+    @Test
     public void renameAndRecategorizeActiveSessionPersistAfterTripEnds() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
