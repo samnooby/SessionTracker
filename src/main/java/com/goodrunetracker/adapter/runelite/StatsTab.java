@@ -186,6 +186,34 @@ final class StatsTab extends JPanel {
         supCard.add(sup);
         detailBody.add(supCard);
 
+        detailBody.add(Styles.sectionHeader("XP averages"));
+        JPanel xpCard = Styles.card();
+        if (d.xpAverages.isEmpty()) {
+            JLabel none = Styles.keyLabel("None");
+            none.setAlignmentX(Component.LEFT_ALIGNMENT);
+            xpCard.add(none);
+        } else {
+            JPanel xpGrid = new JPanel(new GridLayout(0, 3, 6, 3));
+            xpGrid.setBackground(Styles.CARD);
+            xpGrid.setAlignmentX(Component.LEFT_ALIGNMENT);
+            xpGrid.add(Styles.keyLabel("Skill"));
+            xpGrid.add(rightValue("/trip", Styles.SUBTEXT));
+            xpGrid.add(rightValue("/hr", Styles.SUBTEXT));
+            long totalAvgTrip = 0;
+            for (SessionHistory.SkillXpAverage a : d.xpAverages) {
+                totalAvgTrip += a.avgXpPerTrip;
+                xpGrid.add(Styles.keyLabel(a.skill));
+                xpGrid.add(rightValue(GpFormat.format(a.avgXpPerTrip), Styles.XP));
+                xpGrid.add(rightValue(GpFormat.format(a.xpPerHour), Styles.XP));
+            }
+            xpGrid.add(boldLabel("Total", Styles.TEXT, SwingConstants.LEADING));
+            xpGrid.add(boldLabel(GpFormat.format(totalAvgTrip), Styles.XP, SwingConstants.RIGHT));
+            xpGrid.add(boldLabel(GpFormat.format(d.xpPerHour), Styles.XP, SwingConstants.RIGHT));
+            Styles.capHeight(xpGrid);
+            xpCard.add(xpGrid);
+        }
+        detailBody.add(xpCard);
+
         detailBody.revalidate();
         detailBody.repaint();
         cards.show(root, DETAIL);
@@ -196,6 +224,12 @@ final class StatsTab extends JPanel {
         g.setBackground(Styles.CARD);
         g.setAlignmentX(Component.LEFT_ALIGNMENT);
         return g;
+    }
+
+    private static JLabel rightValue(String text, Color color) {
+        JLabel l = Styles.valueLabel(color);
+        l.setText(text);
+        return l;
     }
 
     private static JLabel boldLabel(String text, Color color, int align) {
