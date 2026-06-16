@@ -45,9 +45,17 @@ They need **different** solutions and should be **two separate tickets**.
 - **Looting bag — readable when synced.** `InventoryID.LOOTING_BAG` is a real item container
   (`client.getItemContainer(InventoryID.LOOTING_BAG)`), but it only updates when the bag is
   opened/deposited into, not continuously. RuneLite's loot-tracker reads it this way.
-- **Herb / gem / coal / seed sacks — effectively not readable.** No varbits; contents are
-  surfaced only via a "check" chat message. Tracking these reliably is not feasible with the
-  current client surface.
+- **Herb / gem / coal / seed sacks — contents not readable.** No varbits and no
+  continuously-updated container; contents are surfaced only via a "check" chat message. So
+  the rune-pouch technique (read contents, fold into carried, net out) **cannot** apply.
+  *However*, the **deposit action is detectable.** Filling a sack is an inventory decrease
+  the ledger sees; we could catch the sack's "Fill"/deposit `MenuOptionClicked` — the same
+  mechanism as Drop detection — and reclassify that tick's decrease as "stashed, not
+  consumed" so it doesn't inflate supplies. This is lower-fidelity (one-way: it stops the
+  false deposit cost, but can't track items leaving the sack or read its contents — fine for
+  sacks since you don't consume from them mid-trip) and is **per-container** (each sack's own
+  fill action/widget). Treat as a separate, optional future ticket distinct from the
+  readable containers.
 
 ### Candidate approach: extend "combined carried" to include container contents
 
@@ -163,7 +171,7 @@ interface, headless-tested" pattern.
   combined-carried model with minimal new surface, high confidence, fully headless-testable.
 - **Second: blowpipe charges (charged-item pilot).** High value and well-defined, but a
   larger new subsystem (new signal path + cost registry); start with one item.
-- **Later:** looting bag (loot semantics), then more charged items; the unreadable sacks stay
-  documented-but-unhandled.
+- **Later:** looting bag (loot semantics), then more charged items; the unreadable sacks via
+  optional per-container deposit-action suppression (lower fidelity), only if worth it.
 
 Each ticket goes through the normal cycle: brainstorm → spec → plan → subagent-driven build → PR.
