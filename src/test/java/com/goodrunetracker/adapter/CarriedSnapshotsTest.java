@@ -35,4 +35,12 @@ public class CarriedSnapshotsTest {
         assertFalse(result.containsKey(1));
         assertEquals(Integer.valueOf(5), result.get(560));
     }
+
+    @Test
+    public void combinesPouchAsAThirdSource() {
+        Map<Integer, Integer> result =
+                CarriedSnapshots.combine(map(556, 100), map(560, 1), map(556, 50));
+        assertEquals(Integer.valueOf(150), result.get(556)); // 100 inventory + 50 pouch
+        assertEquals(Integer.valueOf(1), result.get(560));
+    }
 }

@@ -1,5 +1,6 @@
 package com.goodrunetracker.adapter;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -11,9 +12,16 @@ public final class CarriedSnapshots {
 
     public static Map<Integer, Integer> combine(Map<Integer, Integer> inventory,
                                                 Map<Integer, Integer> equipment) {
+        return combine(inventory, equipment, Collections.emptyMap());
+    }
+
+    public static Map<Integer, Integer> combine(Map<Integer, Integer> inventory,
+                                                Map<Integer, Integer> equipment,
+                                                Map<Integer, Integer> pouch) {
         Map<Integer, Integer> out = new HashMap<>();
         addPositive(out, inventory);
         addPositive(out, equipment);
+        addPositive(out, pouch);
         return out;
     }
 

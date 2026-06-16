@@ -13,16 +13,19 @@ import net.runelite.api.ItemContainer;
 public final class ClientCarriedSnapshotSupplier implements CarriedSnapshotSupplier {
 
     private final Client client;
+    private final RunePouchReader pouch;
 
     public ClientCarriedSnapshotSupplier(Client client) {
         this.client = client;
+        this.pouch = new RunePouchReader(client);
     }
 
     @Override
     public Map<Integer, Integer> currentCarried() {
         return CarriedSnapshots.combine(
                 toMap(client.getItemContainer(InventoryID.INVENTORY)),
-                toMap(client.getItemContainer(InventoryID.EQUIPMENT)));
+                toMap(client.getItemContainer(InventoryID.EQUIPMENT)),
+                pouch.contents());
     }
 
     private static Map<Integer, Integer> toMap(ItemContainer container) {

@@ -25,6 +25,7 @@ import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.events.StatChanged;
+import net.runelite.api.events.VarbitChanged;
 import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.widgets.InterfaceID;
 import net.runelite.client.RuneLite;
@@ -191,6 +192,13 @@ public class GoodRuneTrackerPlugin extends Plugin {
     public void onMenuOptionClicked(MenuOptionClicked event) {
         if (service != null && "Drop".equals(event.getMenuOption()) && event.getItemId() > 0) {
             service.markDropped(event.getItemId());
+        }
+    }
+
+    @Subscribe
+    public void onVarbitChanged(VarbitChanged event) {
+        if (service != null && RunePouchReader.isRunePouchVarbit(event.getVarbitId())) {
+            service.markCarriedDirty();
         }
     }
 
