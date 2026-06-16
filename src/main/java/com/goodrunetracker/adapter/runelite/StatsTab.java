@@ -214,6 +214,36 @@ final class StatsTab extends JPanel {
         }
         detailBody.add(xpCard);
 
+        detailBody.add(Styles.sectionHeader("Kill averages"));
+        JPanel killCard = Styles.card();
+        if (d.killAverages.isEmpty()) {
+            JLabel none = Styles.keyLabel("None");
+            none.setAlignmentX(Component.LEFT_ALIGNMENT);
+            killCard.add(none);
+        } else {
+            JPanel killGrid = new JPanel(new GridLayout(0, 3, 6, 3));
+            killGrid.setBackground(Styles.CARD);
+            killGrid.setAlignmentX(Component.LEFT_ALIGNMENT);
+            killGrid.add(Styles.keyLabel("NPC"));
+            killGrid.add(rightValue("/trip", Styles.SUBTEXT));
+            killGrid.add(rightValue("/hr", Styles.SUBTEXT));
+            double totalTrip = 0;
+            double totalHr = 0;
+            for (SessionHistory.NpcKillAverage k : d.killAverages) {
+                totalTrip += k.avgPerTrip;
+                totalHr += k.perHour;
+                killGrid.add(Styles.keyLabel(k.npc));
+                killGrid.add(rightValue(String.format(Locale.US, "%.1f", k.avgPerTrip), Styles.TEXT));
+                killGrid.add(rightValue(String.format(Locale.US, "%.1f", k.perHour), Styles.TEXT));
+            }
+            killGrid.add(boldLabel("Total", Styles.TEXT, SwingConstants.LEADING));
+            killGrid.add(boldLabel(String.format(Locale.US, "%.1f", totalTrip), Styles.TEXT, SwingConstants.RIGHT));
+            killGrid.add(boldLabel(String.format(Locale.US, "%.1f", totalHr), Styles.TEXT, SwingConstants.RIGHT));
+            Styles.capHeight(killGrid);
+            killCard.add(killGrid);
+        }
+        detailBody.add(killCard);
+
         detailBody.revalidate();
         detailBody.repaint();
         cards.show(root, DETAIL);
