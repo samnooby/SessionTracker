@@ -290,6 +290,35 @@ public class SessionHistoryTest {
     }
 
     @Test
+    public void categoryDetailListsPerNpcKillAveragesMostKilledFirst() throws Exception {
+        Path root = Files.createTempDirectory("grt");
+        SessionStore store = new SessionStore(root);
+        Map<String, Integer> kA = new HashMap<>();
+        kA.put("Goblin", 20);
+        kA.put("Cow", 10);
+        Map<String, Integer> kB = new HashMap<>();
+        kB.put("Goblin", 20);
+        Trip t1 = new Trip("t1", 0, 1_800_000L, false, kA, new HashMap<>(),
+                new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>());
+        Trip t2 = new Trip("t2", 1_800_000L, 3_600_000L, false, kB, new HashMap<>(),
+                new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>());
+        save(store, "acct", "s", "Vorkath", "", 0, 3_600_000L,
+                Arrays.asList(SessionMapper.toStored(t1, new HashMap<>()),
+                        SessionMapper.toStored(t2, new HashMap<>())));
+
+        SessionHistory history = new SessionHistory(store, "acct", names);
+        SessionHistory.CategoryDetail d = history.categoryDetail("Vorkath");
+
+        assertEquals(2, d.killAverages.size());
+        assertEquals("Goblin", d.killAverages.get(0).npc);
+        assertEquals(20.0, d.killAverages.get(0).avgPerTrip, 0.0001);
+        assertEquals(40.0, d.killAverages.get(0).perHour, 0.0001);
+        assertEquals("Cow", d.killAverages.get(1).npc);
+        assertEquals(5.0, d.killAverages.get(1).avgPerTrip, 0.0001);
+        assertEquals(10.0, d.killAverages.get(1).perHour, 0.0001);
+    }
+
+    @Test
     public void sessionSummaryExposesAvgKillsPerTrip() throws Exception {
         Path root = Files.createTempDirectory("grt");
         SessionStore store = new SessionStore(root);
