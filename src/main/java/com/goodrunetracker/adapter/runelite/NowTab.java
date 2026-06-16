@@ -41,7 +41,6 @@ final class NowTab extends JPanel {
 
     private final JLabel tripGpHr = new JLabel("-");
     private final JLabel tripXpHr = new JLabel("-");
-    private final JLabel kills = Styles.valueLabel(Styles.TEXT);
     private final JLabel picked = Styles.valueLabel(Styles.GP);
     private final JLabel ground = Styles.valueLabel(Styles.MISSED);
     private final JLabel supplies = Styles.valueLabel(Styles.NEG);
@@ -189,8 +188,6 @@ final class NowTab extends JPanel {
         JPanel grid = new JPanel(new GridLayout(0, 2, 0, 3));
         grid.setBackground(Styles.CARD);
         grid.setAlignmentX(Component.LEFT_ALIGNMENT);
-        grid.add(Styles.keyLabel("Kills"));
-        grid.add(kills);
         grid.add(Styles.keyLabel("Loot picked"));
         grid.add(picked);
         grid.add(Styles.keyLabel("On ground"));
@@ -345,7 +342,6 @@ final class NowTab extends JPanel {
             setSigned(tripGpHr, s.gpPerHour);
             long xpHr = s.durationMillis > 0 ? s.totalXp * MILLIS_PER_HOUR / s.durationMillis : 0;
             tripXpHr.setText(GpFormat.format(xpHr));
-            kills.setText(Integer.toString(s.kills));
             picked.setText(GpFormat.format(s.pickedGp));
             ground.setText(GpFormat.format(s.groundGp));
             supplies.setText(GpFormat.format(s.suppliesGp));
@@ -356,7 +352,6 @@ final class NowTab extends JPanel {
             tripGpHr.setText("-");
             tripGpHr.setForeground(Styles.GP);
             tripXpHr.setText("-");
-            kills.setText("-");
             picked.setText("-");
             ground.setText("-");
             supplies.setText("-");
