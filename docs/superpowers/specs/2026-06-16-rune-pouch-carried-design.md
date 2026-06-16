@@ -30,22 +30,29 @@ diff/ledger/normalization machinery for almost no new surface.
 
 ## Components
 
-### `Runes` table — pure, headless-tested
-The pouch's per-slot **type** varbit holds a rune-type *index* (not an item id). A small
-static table maps that index → the rune's item id. Covers the standard runes and the common
-combination runes; an unknown/zero index maps to nothing (skipped). This is stable game data
-(changes only when Jagex adds a rune) — a code constant, not user configuration.
+### `RunePouch` assembly helper — pure, headless-tested
+The pouch's per-slot **type** varbit holds a rune-type *index* (not an item id). The
+index → rune-item-id mapping is **not hardcoded** — it is read at runtime from the game's own
+cache enum (see `RunePouchReader`). The pure, RuneLite-free helper
+`RunePouch.contents(int[] types, int[] amounts, IntUnaryOperator typeToItemId)` does the
+assembly: for each slot with a positive amount and a non-zero type, resolve the item id via
+the injected `typeToItemId` resolver and accumulate the amount into a `Map<Integer,Integer>`
+(runeItemId → quantity); a type whose resolver returns ≤ 0 is skipped. Because the resolver is
+injected, this is fully headless-tested with a fake mapping.
 
 ### `RunePouchReader` — RuneLite-side
-Reads the rune pouch's slot varbits from the client and returns `Map<Integer,Integer>`
-(runeItemId → quantity):
-- Reads the **type** and **amount** varbits for each pouch slot (4 slots, covering the divine
-  rune pouch's 4th slot).
-- For each slot with a positive amount and a known type, maps type → rune item id via `Runes`
-  and accumulates the amount.
-- The varbit read is client-bound (manual-verified). The pure part — turning the raw
-  `(types[], amounts[])` arrays into the runeItemId→qty map via the table — is split into a
-  static helper so it is headless-tested.
+Reads the rune pouch's slot varbits from the client and returns the runeItemId→quantity map:
+- Reads the **type** and **amount** varbits for each pouch slot (`Varbits.RUNE_POUCH_RUNE1..4`
+  and `RUNE_POUCH_AMOUNT1..4` — 4 slots, covering the divine rune pouch's 4th slot) via
+  `client.getVarbitValue(...)`.
+- Builds the resolver from the game cache enum the same way RuneLite's own runepouch plugin
+  does: `typeValue -> client.getEnum(<rune-pouch enum id>).getIntValue(typeValue)` (the enum
+  maps the type-varbit value to the rune item id). The enum id is the one RuneLite uses
+  (observed as `982` in client 1.12.28); the implementation pins it to a named constant with a
+  comment.
+- Calls `RunePouch.contents(types, amounts, resolver)` and returns the result. This whole
+  class is client-bound (manual-verified); the assembly logic it delegates to is the pure
+  helper above.
 
 ### `CarriedSnapshots.combine` — 3-source overload (pure)
 Add an overload `combine(inventory, equipment, pouch)` that merges all three positive-quantity
@@ -77,8 +84,9 @@ VarbitChanged(rune-pouch varbit) ─→ service.markCarriedDirty() ─→ next o
 - **Loot vs supply overlap:** no special handling — runes fold into the existing combined diff
   like any other consumable. A looted rune is counted as picked-up when it enters inventory;
   stashing and casting then net through the same machinery.
-- **Combination / unknown rune types** not in the table are skipped (folded in as nothing) — a
-  documented minor inaccuracy, never a mis-count.
+- **Unknown rune types** (resolver returns ≤ 0) are skipped (folded in as nothing) — a
+  documented minor inaccuracy, never a mis-count. Combination runes resolve fine because the
+  cache enum already maps them.
 - **Dose normalization:** runes are not potions, so `CarriedNormalizer` leaves them as plain
   item ids; folding pouch runes in by item id is consistent with loose runes.
 - **No pouch / not carrying one:** the pouch read returns an empty map; behavior is identical
@@ -89,8 +97,9 @@ VarbitChanged(rune-pouch varbit) ─→ service.markCarriedDirty() ─→ next o
 **Headless unit tests:**
 - `CarriedSnapshots.combine(inv, equip, pouch)`: three sources merge with summed quantities;
   the 2-arg overload still behaves as before (empty pouch).
-- The `Runes` table / `RunePouchReader` pure helper: `(types[], amounts[])` → runeItemId→qty;
-  known types map correctly, unknown/zero types skipped, amounts summed per rune.
+- `RunePouch.contents(types[], amounts[], typeToItemId)`: with a fake resolver, known types map
+  to their item id and sum per rune; a type the resolver returns ≤ 0 for is skipped; zero
+  amounts contribute nothing.
 - `TrackingService` (fakes): drive the `FakeCarried` supplier to simulate (a) stashing — a
   rune leaves inventory and appears in the pouch on the same settled tick → **no supply**; and
   (b) casting from the pouch — a pouch rune decreases with no inventory change → **a rune
@@ -104,15 +113,15 @@ VarbitChanged(rune-pouch varbit) ─→ service.markCarriedDirty() ─→ next o
 
 ## File touch list
 
-- New: `src/main/java/com/goodrunetracker/adapter/Runes.java` — type-index → rune item id table
-  + the pure `(types[], amounts[]) -> Map<Integer,Integer>` helper.
+- New: `src/main/java/com/goodrunetracker/adapter/RunePouch.java` — pure assembly helper
+  `contents(int[] types, int[] amounts, IntUnaryOperator typeToItemId)`.
 - New: `src/main/java/com/goodrunetracker/adapter/runelite/RunePouchReader.java` — reads the
-  slot varbits from the client and calls the pure helper.
+  slot varbits + builds the cache-enum resolver and calls `RunePouch.contents`.
 - Modify: `CarriedSnapshots.java` — add the 3-source `combine` overload.
 - Modify: `ClientCarriedSnapshotSupplier.java` — read the pouch and pass it as the 3rd source.
 - Modify: `GoodRuneTrackerPlugin.java` — `@Subscribe onVarbitChanged` → `markCarriedDirty()`
   on rune-pouch varbits.
-- Tests: `CarriedSnapshotsTest.java` (extend), `RunesTest.java` (new),
+- Tests: `CarriedSnapshotsTest.java` (extend), `RunePouchTest.java` (new),
   `TrackingServiceTest.java` (extend with the stash/cast scenarios).
 
 ## Out of scope (deferred)
