@@ -288,4 +288,27 @@ public class SessionHistoryTest {
         assertEquals(3000L, d.avgTotalSuppliesGpPerTrip);
         assertEquals(3, d.avgKillsPerTrip, 0.0001);
     }
+
+    @Test
+    public void sessionSummaryExposesAvgKillsPerTrip() throws Exception {
+        Path root = Files.createTempDirectory("grt");
+        SessionStore store = new SessionStore(root);
+        Map<String, Integer> killsA = new HashMap<>();
+        killsA.put("Goblin", 3);
+        Map<String, Integer> killsB = new HashMap<>();
+        killsB.put("Goblin", 1);
+        killsB.put("Cow", 2);
+        Trip t1 = new Trip("t1", 0, 1_800_000L, false, killsA, new HashMap<>(),
+                new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>());
+        Trip t2 = new Trip("t2", 1_800_000L, 3_600_000L, false, killsB, new HashMap<>(),
+                new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>());
+        save(store, "acct", "s", "Vorkath", "", 0, 3_600_000L,
+                Arrays.asList(SessionMapper.toStored(t1, new HashMap<>()),
+                        SessionMapper.toStored(t2, new HashMap<>())));
+
+        SessionHistory history = new SessionHistory(store, "acct", names);
+        SessionHistory.SessionSummary sum = history.sessionsNewestFirst().get(0);
+
+        assertEquals(3.0, sum.avgKillsPerTrip, 0.0001);
+    }
 }

@@ -46,9 +46,14 @@ public final class SessionHistory {
             long xpTotal = session.totalXp();
             long avgNet = tripCount == 0 ? 0 : net / tripCount;
             long avgXp = tripCount == 0 ? 0 : xpTotal / tripCount;
+            long totalKills = 0;
+            for (Trip t : session.trips()) {
+                totalKills += t.totalKills();
+            }
+            double avgKills = tripCount == 0 ? 0 : (double) totalKills / tripCount;
             out.add(new SessionSummary(s.id, s.name, s.category, tripCount,
                     net, session.gpPerHour(fn), xpTotal, session.wallClockMillis(), s.startMillis,
-                    session.xpPerHour(), avgNet, avgXp));
+                    session.xpPerHour(), avgNet, avgXp, avgKills));
         }
         out.sort(Comparator.comparingLong((SessionSummary s) -> s.startMillis).reversed());
         return out;
@@ -224,11 +229,12 @@ public final class SessionHistory {
         public final long xpPerHour;
         public final long avgNetProfitPerTrip;
         public final long avgXpPerTrip;
+        public final double avgKillsPerTrip;
 
         public SessionSummary(String sessionId, String name, String category, int tripCount,
                               long netProfit, long gpPerHour, long xpTotal, long wallClockMillis,
                               long startMillis, long xpPerHour, long avgNetProfitPerTrip,
-                              long avgXpPerTrip) {
+                              long avgXpPerTrip, double avgKillsPerTrip) {
             this.sessionId = sessionId;
             this.name = name;
             this.category = category;
@@ -241,6 +247,7 @@ public final class SessionHistory {
             this.xpPerHour = xpPerHour;
             this.avgNetProfitPerTrip = avgNetProfitPerTrip;
             this.avgXpPerTrip = avgXpPerTrip;
+            this.avgKillsPerTrip = avgKillsPerTrip;
         }
     }
 
