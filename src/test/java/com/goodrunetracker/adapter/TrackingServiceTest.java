@@ -48,12 +48,25 @@ public class TrackingServiceTest {
 
     private final ItemPriceSource oneGp = id -> 1;
 
+    static final class FakeXp implements CurrentXpSupplier {
+        final Map<String, Long> xp = new HashMap<>();
+
+        public Map<String, Long> currentXp() {
+            return new HashMap<>(xp);
+        }
+    }
+
     private TrackingService newService(FakeClock clock, FakeCarried carried, FakePanel panel,
                                        SessionStore store) {
+        return newService(clock, carried, panel, store, new FakeXp());
+    }
+
+    private TrackingService newService(FakeClock clock, FakeCarried carried, FakePanel panel,
+                                       SessionStore store, CurrentXpSupplier currentXp) {
         PotionRegistry potions = new PotionRegistry();
         LiveItemValuer valuer = new LiveItemValuer(oneGp, potions);
         return new TrackingService(clock, carried, id -> "Item " + id, potions, valuer, store,
-                panel, "acct-A");
+                panel, "acct-A", currentXp);
     }
 
     @Test
@@ -150,6 +163,23 @@ public class TrackingServiceTest {
     }
 
     @Test
+    public void firstXpGainOfEachSkillIsCounted() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"));
+        FakeXp xp = new FakeXp();
+        xp.xp.put("Attack", 1000L);      // existing totals before the session starts
+        xp.xp.put("Woodcutting", 5000L);
+        TrackingService service = newService(clock, carried, new FakePanel(), store, xp);
+
+        service.startSession();          // primes baselines for every skill
+        service.onXp("Attack", 1004);    // first hit: +4 (previously lost)
+        service.onXp("Woodcutting", 5025); // first log later in the trip: +25 (previously lost)
+
+        assertEquals(29, service.currentSnapshot().get().totalXp);
+    }
+
+    @Test
     public void xpBaselineResetsBetweenSessions() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
@@ -237,7 +267,7 @@ public class TrackingServiceTest {
         PotionRegistry potions = new PotionRegistry();
         LiveItemValuer live = new LiveItemValuer(prices, potions);
         TrackingService service = new TrackingService(clock, carried, id -> "Item " + id,
-                potions, live, store, new FakePanel(), "acct-A");
+                potions, live, store, new FakePanel(), "acct-A", new FakeXp());
 
         service.startSession();
         Map<Integer, Integer> drop = new HashMap<>();

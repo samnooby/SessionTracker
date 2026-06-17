@@ -1,5 +1,6 @@
 package com.goodrunetracker.adapter.runelite;
 
+import com.goodrunetracker.adapter.CurrentXpSupplier;
 import com.goodrunetracker.adapter.LiveItemValuer;
 import com.goodrunetracker.adapter.PotionRegistry;
 import com.goodrunetracker.adapter.SessionHistory;
@@ -123,9 +124,24 @@ public class GoodRuneTrackerPlugin extends Plugin {
                 valuer,
                 store,
                 panel,
-                Long.toString(client.getAccountHash()));
+                Long.toString(client.getAccountHash()),
+                currentXp());
         SessionHistory history = new SessionHistory(store, Long.toString(client.getAccountHash()), names);
         panel.setService(service, true, history);
+    }
+
+    /** Current total XP for every real skill, keyed by Skill.getName(). Read on the client thread. */
+    private CurrentXpSupplier currentXp() {
+        return () -> {
+            Map<String, Long> xp = new HashMap<>();
+            for (Skill skill : Skill.values()) {
+                if (skill == Skill.OVERALL) {
+                    continue;
+                }
+                xp.put(skill.getName(), (long) client.getSkillExperience(skill));
+            }
+            return xp;
+        };
     }
 
     @Subscribe
