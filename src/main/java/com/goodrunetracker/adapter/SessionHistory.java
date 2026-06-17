@@ -120,12 +120,14 @@ public final class SessionHistory {
         long totalWallClock = 0;
         long totalCombatGp = 0;
         long totalGatherGp = 0;
+        long totalSuppliesGp = 0;
         for (Session s : sessions) {
             totalWallClock += s.wallClockMillis();
             for (Trip t : s.trips()) {
                 ItemValuer v = fn.apply(t);
                 totalCombatGp += t.pickedUpValue(v);
                 totalGatherGp += t.gatheredValue(v);
+                totalSuppliesGp += t.suppliesValue(v);
                 for (Map.Entry<String, Long> e : t.xpGained().entrySet()) {
                     skillTotalXp.merge(e.getKey(), e.getValue(), Long::sum);
                 }
@@ -133,6 +135,7 @@ public final class SessionHistory {
         }
         long combatGpPerHour = totalWallClock <= 0 ? 0 : totalCombatGp * MILLIS_PER_HOUR / totalWallClock;
         long gatherGpPerHour = totalWallClock <= 0 ? 0 : totalGatherGp * MILLIS_PER_HOUR / totalWallClock;
+        long suppliesGpPerHour = totalWallClock <= 0 ? 0 : totalSuppliesGp * MILLIS_PER_HOUR / totalWallClock;
         List<SkillXpAverage> xpAverages = new ArrayList<>();
         for (Map.Entry<String, Long> e : skillTotalXp.entrySet()) {
             long avgTrip = tripCount == 0 ? 0 : e.getValue() / tripCount;
@@ -163,7 +166,8 @@ public final class SessionHistory {
                 supplyAvg.items, supplyAvg.avgTotalGpPerTrip, xpAverages, killAverages,
                 pickedAvg.items, pickedAvg.avgTotalGpPerTrip,
                 missedAvg.items, droppedAvg.items, droppedAvg.avgTotalGpPerTrip,
-                gatheredAvg.items, gatheredAvg.avgTotalGpPerTrip, combatGpPerHour, gatherGpPerHour);
+                gatheredAvg.items, gatheredAvg.avgTotalGpPerTrip, combatGpPerHour, gatherGpPerHour,
+                suppliesGpPerHour);
     }
 
     public void rename(String sessionId, String newName) {
@@ -433,6 +437,7 @@ public final class SessionHistory {
         public final long avgGatheredGpPerTrip;
         public final long combatGpPerHour;
         public final long gatherGpPerHour;
+        public final long suppliesGpPerHour;
 
         public CategoryDetail(long gpPerHour, long xpPerHour, long avgNetProfitPerTrip,
                               long avgMissedPerTrip, long avgTripDurationMillis, double avgKillsPerTrip,
@@ -441,7 +446,8 @@ public final class SessionHistory {
                               List<ItemAverage> pickedAverages, long avgPickedGpPerTrip,
                               List<ItemAverage> missedAverages, List<ItemAverage> droppedAverages,
                               long avgDroppedGpPerTrip, List<ItemAverage> gatheredAverages,
-                              long avgGatheredGpPerTrip, long combatGpPerHour, long gatherGpPerHour) {
+                              long avgGatheredGpPerTrip, long combatGpPerHour, long gatherGpPerHour,
+                              long suppliesGpPerHour) {
             this.gpPerHour = gpPerHour;
             this.xpPerHour = xpPerHour;
             this.avgNetProfitPerTrip = avgNetProfitPerTrip;
@@ -461,6 +467,7 @@ public final class SessionHistory {
             this.avgGatheredGpPerTrip = avgGatheredGpPerTrip;
             this.combatGpPerHour = combatGpPerHour;
             this.gatherGpPerHour = gatherGpPerHour;
+            this.suppliesGpPerHour = suppliesGpPerHour;
         }
     }
 }
