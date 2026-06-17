@@ -30,6 +30,7 @@ public final class TrackingService {
     private final SessionStore store;
     private final PanelView panel;
     private final String accountHash;
+    private final CurrentXpSupplier currentXp;
 
     // Invariant: ledger != null implies activeSession != null (a trip only runs inside a session).
     private StoredSession activeSession;
@@ -50,7 +51,7 @@ public final class TrackingService {
 
     public TrackingService(Clock clock, CarriedSnapshotSupplier carried, IntFunction<String> names,
                            PotionRegistry potions, LiveItemValuer valuer, SessionStore store,
-                           PanelView panel, String accountHash) {
+                           PanelView panel, String accountHash, CurrentXpSupplier currentXp) {
         this.clock = clock;
         this.carried = carried;
         this.names = names;
@@ -59,6 +60,7 @@ public final class TrackingService {
         this.store = store;
         this.panel = panel;
         this.accountHash = accountHash;
+        this.currentXp = currentXp;
     }
 
     public boolean isTracking() {
@@ -69,7 +71,11 @@ public final class TrackingService {
         if (activeSession != null) {
             return;
         }
+        // Prime every skill's baseline to its current total so the FIRST XP gain of each
+        // skill this session is counted. StatChanged only fires on a change, so without a
+        // baseline the first gain would merely prime lastXp and be lost.
         lastXp.clear();
+        lastXp.putAll(currentXp.currentXp());
         activeSession = new StoredSession();
         activeSession.id = clock.newId();
         activeSession.accountHash = accountHash;

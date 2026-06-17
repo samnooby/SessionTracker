@@ -46,7 +46,7 @@ public class TrackingServiceDeathAndBankTest {
                                        SessionStore store) {
         PotionRegistry potions = new PotionRegistry();
         return new TrackingService(clock, carried, id -> "Item " + id, potions,
-                new LiveItemValuer(oneGp, potions), store, panel, "acct-A");
+                new LiveItemValuer(oneGp, potions), store, panel, "acct-A", java.util.HashMap::new);
     }
 
     private void killOnce(TrackingService service, FakeCarried carried, FakeClock clock) {
