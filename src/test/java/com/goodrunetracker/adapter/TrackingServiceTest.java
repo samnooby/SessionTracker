@@ -409,6 +409,42 @@ public class TrackingServiceTest {
     }
 
     @Test
+    public void chargingAScaleWeaponIsNotASupply() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        carried.carried.put(12934, 1000); // 1000 Zulrah's scales (inventory or weapon -- combined)
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"));
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+
+        service.startSession(); // baseline: 12934 -> 1000
+
+        carried.carried.put(12934, 1000); // charge: scales move inventory -> weapon, combined unchanged
+        service.markCarriedDirty();
+        clock.now = 10_000;
+        service.onTick();
+
+        assertEquals(0, service.currentSnapshot().get().suppliesGp);
+    }
+
+    @Test
+    public void shootingAScaleWeaponBooksScalesAsSupply() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        carried.carried.put(12934, 1000);
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"));
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+
+        service.startSession(); // baseline: 12934 -> 1000
+
+        carried.carried.put(12934, 700); // shot 300 scales from the weapon, no inventory event
+        service.markCarriedDirty();
+        clock.now = 10_000;
+        service.onTick();
+
+        assertEquals(300, service.currentSnapshot().get().suppliesGp); // oneGp valuer -> 300
+    }
+
+    @Test
     public void renameAndRecategorizeActiveSessionPersistAfterTripEnds() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();

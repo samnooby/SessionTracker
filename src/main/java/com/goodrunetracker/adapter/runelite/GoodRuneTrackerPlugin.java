@@ -197,7 +197,9 @@ public class GoodRuneTrackerPlugin extends Plugin {
 
     @Subscribe
     public void onVarbitChanged(VarbitChanged event) {
-        if (service != null && RunePouchReader.isRunePouchVarbit(event.getVarbitId())) {
+        if (service != null
+                && (RunePouchReader.isRunePouchVarbit(event.getVarbitId())
+                    || ChargedItemReader.isChargeVarbit(event.getVarbitId()))) {
             service.markCarriedDirty();
         }
     }

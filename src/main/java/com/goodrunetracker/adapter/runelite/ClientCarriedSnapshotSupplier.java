@@ -14,10 +14,12 @@ public final class ClientCarriedSnapshotSupplier implements CarriedSnapshotSuppl
 
     private final Client client;
     private final RunePouchReader pouch;
+    private final ChargedItemReader charged;
 
     public ClientCarriedSnapshotSupplier(Client client) {
         this.client = client;
         this.pouch = new RunePouchReader(client);
+        this.charged = new ChargedItemReader(client);
     }
 
     @Override
@@ -25,7 +27,8 @@ public final class ClientCarriedSnapshotSupplier implements CarriedSnapshotSuppl
         return CarriedSnapshots.combine(
                 toMap(client.getItemContainer(InventoryID.INVENTORY)),
                 toMap(client.getItemContainer(InventoryID.EQUIPMENT)),
-                pouch.contents());
+                pouch.contents(),
+                charged.contents());
     }
 
     private static Map<Integer, Integer> toMap(ItemContainer container) {
