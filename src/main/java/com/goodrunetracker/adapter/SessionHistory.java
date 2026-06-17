@@ -85,7 +85,8 @@ public final class SessionHistory {
                 ItemValuer v = new FrozenItemValuer(SessionMapper.unitPrices(st));
                 return new TripDetail(lines(t.pickedUp(), v), lines(t.missed(), v),
                         lines(t.suppliesUsed(), v), t.netProfit(v), t.missedValue(v),
-                        SkillXp.sortedFrom(t.xpGained()), NpcKills.sortedByCountDesc(t.kills()));
+                        SkillXp.sortedFrom(t.xpGained()), NpcKills.sortedByCountDesc(t.kills()),
+                        lines(t.gathered(), v), t.gatheredValue(v));
             }
         }
         return null;
@@ -113,17 +114,25 @@ public final class SessionHistory {
         ItemAverages pickedAvg = itemAverages(sessions, fn, tripCount, Trip::pickedUp);
         ItemAverages missedAvg = itemAverages(sessions, fn, tripCount, Trip::missed);
         ItemAverages droppedAvg = itemAverages(sessions, fn, tripCount, Trip::dropped);
+        ItemAverages gatheredAvg = itemAverages(sessions, fn, tripCount, Trip::gathered);
 
         Map<String, Long> skillTotalXp = new TreeMap<>(); // TreeMap -> alphabetical
         long totalWallClock = 0;
+        long totalCombatGp = 0;
+        long totalGatherGp = 0;
         for (Session s : sessions) {
             totalWallClock += s.wallClockMillis();
             for (Trip t : s.trips()) {
+                ItemValuer v = fn.apply(t);
+                totalCombatGp += t.pickedUpValue(v);
+                totalGatherGp += t.gatheredValue(v);
                 for (Map.Entry<String, Long> e : t.xpGained().entrySet()) {
                     skillTotalXp.merge(e.getKey(), e.getValue(), Long::sum);
                 }
             }
         }
+        long combatGpPerHour = totalWallClock <= 0 ? 0 : totalCombatGp * MILLIS_PER_HOUR / totalWallClock;
+        long gatherGpPerHour = totalWallClock <= 0 ? 0 : totalGatherGp * MILLIS_PER_HOUR / totalWallClock;
         List<SkillXpAverage> xpAverages = new ArrayList<>();
         for (Map.Entry<String, Long> e : skillTotalXp.entrySet()) {
             long avgTrip = tripCount == 0 ? 0 : e.getValue() / tripCount;
@@ -153,7 +162,8 @@ public final class SessionHistory {
                 cs.avgMissedPerTrip(), cs.avgTripDurationMillis(), cs.avgKillsPerTrip(),
                 supplyAvg.items, supplyAvg.avgTotalGpPerTrip, xpAverages, killAverages,
                 pickedAvg.items, pickedAvg.avgTotalGpPerTrip,
-                missedAvg.items, droppedAvg.items, droppedAvg.avgTotalGpPerTrip);
+                missedAvg.items, droppedAvg.items, droppedAvg.avgTotalGpPerTrip,
+                gatheredAvg.items, gatheredAvg.avgTotalGpPerTrip, combatGpPerHour, gatherGpPerHour);
     }
 
     public void rename(String sessionId, String newName) {
@@ -331,10 +341,13 @@ public final class SessionHistory {
         public final long missedValue;
         public final List<SkillXp> xpGained;
         public final List<NpcKills> killsByNpc;
+        public final List<ItemLine> gathered;
+        public final long gatheredValue;
 
         public TripDetail(List<ItemLine> pickedUp, List<ItemLine> leftOnGround,
                           List<ItemLine> suppliesUsed, long netProfit, long missedValue,
-                          List<SkillXp> xpGained, List<NpcKills> killsByNpc) {
+                          List<SkillXp> xpGained, List<NpcKills> killsByNpc,
+                          List<ItemLine> gathered, long gatheredValue) {
             this.pickedUp = pickedUp;
             this.leftOnGround = leftOnGround;
             this.suppliesUsed = suppliesUsed;
@@ -342,6 +355,8 @@ public final class SessionHistory {
             this.missedValue = missedValue;
             this.xpGained = xpGained;
             this.killsByNpc = killsByNpc;
+            this.gathered = gathered;
+            this.gatheredValue = gatheredValue;
         }
     }
 
@@ -414,6 +429,10 @@ public final class SessionHistory {
         public final List<ItemAverage> missedAverages;
         public final List<ItemAverage> droppedAverages;
         public final long avgDroppedGpPerTrip;
+        public final List<ItemAverage> gatheredAverages;
+        public final long avgGatheredGpPerTrip;
+        public final long combatGpPerHour;
+        public final long gatherGpPerHour;
 
         public CategoryDetail(long gpPerHour, long xpPerHour, long avgNetProfitPerTrip,
                               long avgMissedPerTrip, long avgTripDurationMillis, double avgKillsPerTrip,
@@ -421,7 +440,8 @@ public final class SessionHistory {
                               List<SkillXpAverage> xpAverages, List<NpcKillAverage> killAverages,
                               List<ItemAverage> pickedAverages, long avgPickedGpPerTrip,
                               List<ItemAverage> missedAverages, List<ItemAverage> droppedAverages,
-                              long avgDroppedGpPerTrip) {
+                              long avgDroppedGpPerTrip, List<ItemAverage> gatheredAverages,
+                              long avgGatheredGpPerTrip, long combatGpPerHour, long gatherGpPerHour) {
             this.gpPerHour = gpPerHour;
             this.xpPerHour = xpPerHour;
             this.avgNetProfitPerTrip = avgNetProfitPerTrip;
@@ -437,6 +457,10 @@ public final class SessionHistory {
             this.missedAverages = missedAverages;
             this.droppedAverages = droppedAverages;
             this.avgDroppedGpPerTrip = avgDroppedGpPerTrip;
+            this.gatheredAverages = gatheredAverages;
+            this.avgGatheredGpPerTrip = avgGatheredGpPerTrip;
+            this.combatGpPerHour = combatGpPerHour;
+            this.gatherGpPerHour = gatherGpPerHour;
         }
     }
 }
