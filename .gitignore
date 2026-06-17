@@ -6,3 +6,6 @@ build/
 
 # Local Jagex-account dev credentials (never commit)
 jagex.env
+
+# Internal planning/design docs (not for the published plugin)
+docs/superpowers/
