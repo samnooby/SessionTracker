@@ -121,6 +121,36 @@ public class SessionHistoryTest {
     }
 
     @Test
+    public void tripDetailShowsKeptPickedUpAndUsedLoot() throws Exception {
+        // Looted 4 sharks, ate 3: picked-up shows the 1 kept; the 3 eaten show as used loot.
+        Path root = Files.createTempDirectory("grt");
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
+        ItemKey shark = ItemKey.item(385);
+        Map<ItemKey, Long> price = new HashMap<>();
+        price.put(shark, 1000L);
+        Map<ItemKey, Integer> picked = new HashMap<>();
+        picked.put(shark, 4);
+        Map<ItemKey, Integer> consumed = new HashMap<>();
+        consumed.put(shark, 3);
+        Trip t = new Trip("t1", 0, 3_600_000L, false, new HashMap<>(), new HashMap<>(),
+                picked, new HashMap<>(), new HashMap<>(), new HashMap<>(), consumed, new HashMap<>());
+        save(store, "acct", "s", "Vorkath", "", 0, 3_600_000L,
+                Arrays.asList(SessionMapper.toStored(t, price)));
+
+        SessionHistory history = new SessionHistory(store, "acct", names);
+        SessionHistory.TripDetail d = history.tripDetail("s", "t1");
+
+        assertEquals(1, d.pickedUp.size());
+        assertEquals(1, d.pickedUp.get(0).quantity);          // 4 looted - 3 eaten = 1 kept
+        assertEquals(1000L, d.pickedUp.get(0).gpValue);
+        assertEquals(1, d.usedLoot.size());
+        assertEquals("Item 385", d.usedLoot.get(0).label);
+        assertEquals(3, d.usedLoot.get(0).quantity);
+        assertEquals(3000L, d.usedLoot.get(0).gpValue);
+        assertEquals(1000L, d.netProfit);                     // 4000 picked - 3000 consumed
+    }
+
+    @Test
     public void categoryStatsAreSortedByGpPerHourDescending() throws Exception {
         Path root = Files.createTempDirectory("grt");
         SessionStore store = new SessionStore(root, new com.google.gson.Gson());

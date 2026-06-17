@@ -83,10 +83,10 @@ public final class SessionHistory {
             if (st.id.equals(tripId)) {
                 Trip t = SessionMapper.toTrip(st);
                 ItemValuer v = new FrozenItemValuer(SessionMapper.unitPrices(st));
-                return new TripDetail(lines(t.pickedUp(), v), lines(t.missed(), v),
+                return new TripDetail(lines(t.pickedUpKept(), v), lines(t.missed(), v),
                         lines(t.suppliesUsed(), v), t.netProfit(v), t.missedValue(v),
                         SkillXp.sortedFrom(t.xpGained()), NpcKills.sortedByCountDesc(t.kills()),
-                        lines(t.gathered(), v), t.gatheredValue(v));
+                        lines(t.gatheredKept(), v), t.gatheredValue(v), lines(t.consumedLoot(), v));
             }
         }
         return null;
@@ -349,11 +349,12 @@ public final class SessionHistory {
         public final List<NpcKills> killsByNpc;
         public final List<ItemLine> gathered;
         public final long gatheredValue;
+        public final List<ItemLine> usedLoot;
 
         public TripDetail(List<ItemLine> pickedUp, List<ItemLine> leftOnGround,
                           List<ItemLine> suppliesUsed, long netProfit, long missedValue,
                           List<SkillXp> xpGained, List<NpcKills> killsByNpc,
-                          List<ItemLine> gathered, long gatheredValue) {
+                          List<ItemLine> gathered, long gatheredValue, List<ItemLine> usedLoot) {
             this.pickedUp = pickedUp;
             this.leftOnGround = leftOnGround;
             this.suppliesUsed = suppliesUsed;
@@ -363,6 +364,7 @@ public final class SessionHistory {
             this.killsByNpc = killsByNpc;
             this.gathered = gathered;
             this.gatheredValue = gatheredValue;
+            this.usedLoot = usedLoot;
         }
     }
 
