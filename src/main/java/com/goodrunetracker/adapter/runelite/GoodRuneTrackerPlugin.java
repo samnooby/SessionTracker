@@ -28,6 +28,7 @@ import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.events.StatChanged;
 import net.runelite.api.events.VarbitChanged;
+import net.runelite.api.events.WidgetClosed;
 import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.widgets.InterfaceID;
 import net.runelite.client.RuneLite;
@@ -216,8 +217,17 @@ public class GoodRuneTrackerPlugin extends Plugin {
 
     @Subscribe
     public void onWidgetLoaded(WidgetLoaded event) {
-        if (service != null && config.bankDetection() && event.getGroupId() == InterfaceID.BANK) {
-            service.onBankOpened();
+        // Always notify the service so banking inventory changes aren't miscounted; the config
+        // only decides whether opening the bank also ends the current trip.
+        if (service != null && event.getGroupId() == InterfaceID.BANK) {
+            service.onBankOpened(config.bankDetection());
+        }
+    }
+
+    @Subscribe
+    public void onWidgetClosed(WidgetClosed event) {
+        if (service != null && event.getGroupId() == InterfaceID.BANK) {
+            service.onBankClosed();
         }
     }
 

@@ -41,6 +41,7 @@ public final class TrackingService {
     private boolean tripDied;
     private boolean inventoryDirty;
     private boolean awaitingDeathChoice;
+    private boolean bankOpen;
     private final Map<String, Long> lastXp = new HashMap<>();
     private final java.util.Set<ItemKey> droppedThisTick = new java.util.HashSet<>();
 
@@ -96,6 +97,7 @@ public final class TrackingService {
         tripDied = false;
         inventoryDirty = false;
         awaitingDeathChoice = false;
+        bankOpen = false;
         ledger.updateCarried(normalize(carried.currentCarried()));
         refreshCache();
         panel.refresh();
@@ -121,7 +123,13 @@ public final class TrackingService {
             return;
         }
         if (inventoryDirty) {
-            ledger.updateCarried(normalize(carried.currentCarried()), droppedThisTick);
+            Map<ItemKey, Integer> settled = normalize(carried.currentCarried());
+            if (bankOpen) {
+                // Deposits/withdrawals while banking change inventory but aren't supplies or gains.
+                ledger.rebaseline(settled);
+            } else {
+                ledger.updateCarried(settled, droppedThisTick);
+            }
             inventoryDirty = false;
         }
         droppedThisTick.clear();
@@ -167,14 +175,43 @@ public final class TrackingService {
         }
     }
 
-    public void onBankOpened() {
+    /**
+     * Bank interface opened. Always tracked: while the bank is open, inventory changes are
+     * rebaselined rather than reconciled (see {@link #onTick()}). If {@code endTrip} is set
+     * (the "Auto-end trip at bank" config), opening the bank also rolls the trip.
+     */
+    public void onBankOpened(boolean endTrip) {
         if (ledger == null || awaitingDeathChoice) {
             return;
         }
+        if (endTrip) {
+            rollTrip(); // resets bankOpen, so set the flag after the roll
+        }
+        bankOpen = true;
+    }
+
+    /** Manually end the current trip and start a fresh one (the "End trip" button). */
+    public void endCurrentTrip() {
+        if (ledger == null || awaitingDeathChoice) {
+            return;
+        }
+        rollTrip();
+    }
+
+    private void rollTrip() {
         endTrip();
         if (activeSession != null) {
             startTrip();
         }
+    }
+
+    /** Bank interface closed. Pin the post-bank inventory as the baseline and resume tracking. */
+    public void onBankClosed() {
+        if (ledger == null || awaitingDeathChoice) {
+            return;
+        }
+        bankOpen = false;
+        ledger.rebaseline(normalize(carried.currentCarried()));
     }
 
     public void discardTrip() {

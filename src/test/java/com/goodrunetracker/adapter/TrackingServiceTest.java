@@ -232,6 +232,84 @@ public class TrackingServiceTest {
     }
 
     @Test
+    public void depositingGatheredItemsAtBankIsNotASupply() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"));
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+
+        service.startSession();
+        carried.carried.put(1521, 28);          // chopped 28 oak logs
+        service.markCarriedDirty();
+        clock.now = 10_000;
+        service.onTick();
+
+        service.onBankOpened(false);            // bank opens, trip continues
+        carried.carried.remove(1521);           // deposit all 28
+        service.markCarriedDirty();
+        clock.now = 20_000;
+        service.onTick();
+        service.onBankClosed();
+
+        TripSnapshot snap = service.currentSnapshot().get();
+        assertEquals(0, snap.suppliesGp);        // deposit is not a supply
+        assertEquals(28, snap.gatheredGp);       // the gathered logs still count as profit
+    }
+
+    @Test
+    public void withdrawingItemsAtBankIsNotCountedAsGathered() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"));
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+
+        service.startSession();
+        service.onBankOpened(false);
+        carried.carried.put(385, 3);            // withdraw 3 sharks
+        service.markCarriedDirty();
+        clock.now = 10_000;
+        service.onTick();
+        service.onBankClosed();
+
+        carried.carried.put(385, 1);            // ate 2 after leaving the bank
+        service.markCarriedDirty();
+        clock.now = 20_000;
+        service.onTick();
+
+        TripSnapshot snap = service.currentSnapshot().get();
+        assertEquals(0, snap.gatheredGp);        // withdrawal isn't a gain
+        assertEquals(2, snap.suppliesGp);        // brought food eaten is a supply
+    }
+
+    @Test
+    public void depositInPostBankTripIsNotPersistedAsSupplyWhenEndTripEnabled() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"));
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+
+        service.startSession();
+        carried.carried.put(1521, 28);          // gather 28 logs
+        service.markCarriedDirty();
+        clock.now = 10_000;
+        service.onTick();
+
+        service.onBankOpened(true);             // ends gather trip, starts a new one
+        carried.carried.remove(1521);           // deposit in the new trip
+        service.markCarriedDirty();
+        clock.now = 20_000;
+        service.onTick();
+        service.onBankClosed();
+        service.endSession();
+
+        List<StoredSession> saved = store.load("acct-A");
+        assertEquals(1, saved.get(0).trips.size());                 // only the gather run persists
+        Trip t = SessionMapper.toTrip(saved.get(0).trips.get(0));
+        assertEquals(Integer.valueOf(28), t.gathered().get(ItemKey.item(1521)));
+        assertTrue(t.suppliesUsed().isEmpty());                     // the deposit never booked a supply
+    }
+
+    @Test
     public void emptyTripIsNotPersisted() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
@@ -429,7 +507,8 @@ public class TrackingServiceTest {
         service.markCarriedDirty();
         clock.now = 1_800_000L;
         service.onTick();
-        service.onBankOpened();
+        service.onBankOpened(true);
+        service.onBankClosed();          // leave the bank before the next kill
 
         service.onKill("Vorkath", drop);
         carried.carried.put(560, 150);
@@ -614,7 +693,7 @@ public class TrackingServiceTest {
         service.markCarriedDirty();
         clock.now = 3_600_000L;                 // 1 hour
         service.onTick();
-        service.onBankOpened();                 // ends the trip, persisting gathered=100
+        service.onBankOpened(true);                 // ends the trip, persisting gathered=100
 
         SessionSnapshot snap = service.currentSessionSnapshot().get();
         assertEquals(100L, snap.netProfit);     // 0 picked + 100 gathered - 0 supplies
@@ -636,7 +715,7 @@ public class TrackingServiceTest {
         service.markCarriedDirty();
         clock.now = 60_000;
         service.onTick();
-        service.onBankOpened();
+        service.onBankOpened(true);
 
         service.renameActiveSession("my grind");
         service.recategorizeActiveSession("Bossing");
