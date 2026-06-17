@@ -28,6 +28,7 @@ public final class SessionMapper {
         stored.pickedUp = encode(trip.pickedUp());
         stored.missed = encode(trip.missed());
         stored.suppliesUsed = encode(trip.suppliesUsed());
+        stored.gathered = encode(trip.gathered());
         stored.xpGained = new HashMap<>(trip.xpGained());
         stored.unitPrices = encodeLong(unitPrices);
         return stored;
@@ -38,6 +39,7 @@ public final class SessionMapper {
                 new HashMap<>(stored.kills),
                 decode(stored.dropped), decode(stored.pickedUp),
                 decode(stored.missed), decode(stored.suppliesUsed),
+                decode(stored.gathered),
                 new HashMap<>(stored.xpGained));
     }
 
@@ -89,6 +91,9 @@ public final class SessionMapper {
 
     private static Map<ItemKey, Integer> decode(Map<String, Integer> map) {
         Map<ItemKey, Integer> out = new HashMap<>();
+        if (map == null) {
+            return out;
+        }
         map.forEach((token, qty) -> out.put(ItemKeyCodec.decode(token), qty));
         return out;
     }
