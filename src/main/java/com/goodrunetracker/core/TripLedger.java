@@ -52,6 +52,15 @@ public final class TripLedger {
         updateCarried(settledCarried, Collections.emptySet());
     }
 
+    /**
+     * Reset the delta baseline to {@code settledCarried} without recording anything. Used while
+     * the bank is open: deposits and withdrawals change the inventory but are neither supplies
+     * consumed nor resources gained, so they must be absorbed rather than reconciled.
+     */
+    public void rebaseline(Map<ItemKey, Integer> settledCarried) {
+        carried = new HashMap<>(settledCarried);
+    }
+
     public void updateCarried(Map<ItemKey, Integer> settledCarried, Set<ItemKey> droppedThisTick) {
         if (carried == null) {
             carried = new HashMap<>(settledCarried);

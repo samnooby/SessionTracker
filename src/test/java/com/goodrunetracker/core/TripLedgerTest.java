@@ -42,6 +42,29 @@ public class TripLedgerTest {
     }
 
     @Test
+    public void rebaselineAbsorbsDepositsWithoutCountingThemAsSupplies() {
+        TripLedger ledger = new TripLedger();
+        ledger.updateCarried(carried());                       // baseline empty
+        ledger.updateCarried(carried(ItemKey.item(1521), 28)); // gathered 28 oak logs
+        ledger.rebaseline(carried());                          // banked all 28 (deposit)
+        ledger.updateCarried(carried(ItemKey.item(1521), 1));  // chopped 1 more after the bank
+        Trip trip = ledger.build("t1", 0, 60_000, false);
+        assertEquals(Integer.valueOf(29), trip.gathered().get(ItemKey.item(1521))); // deposit ignored, 28+1
+        assertTrue(trip.suppliesUsed().isEmpty());
+    }
+
+    @Test
+    public void rebaselineAbsorbsWithdrawalsWithoutCountingThemAsGathered() {
+        TripLedger ledger = new TripLedger();
+        ledger.updateCarried(carried());                       // baseline empty
+        ledger.rebaseline(carried(ItemKey.item(385), 3));      // withdrew 3 sharks at the bank
+        ledger.updateCarried(carried(ItemKey.item(385), 1));   // ate 2 after leaving
+        Trip trip = ledger.build("t1", 0, 60_000, false);
+        assertNull(trip.gathered().get(ItemKey.item(385)));    // withdrawal not gathered
+        assertEquals(Integer.valueOf(2), trip.suppliesUsed().get(ItemKey.item(385))); // brought food eaten
+    }
+
+    @Test
     public void netDecreaseIsCountedAsSuppliesUsed() {
         TripLedger ledger = new TripLedger();
         ledger.updateCarried(carried(ItemKey.item(385), 4)); // start: 4 sharks

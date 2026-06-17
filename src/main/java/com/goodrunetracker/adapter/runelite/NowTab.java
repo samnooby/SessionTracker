@@ -104,7 +104,7 @@ final class NowTab extends JPanel {
         }));
         endTrip.addActionListener(e -> onClient(() -> {
             if (service != null && service.isTracking()) {
-                service.onBankOpened();
+                service.endCurrentTrip();
             }
         }));
         discardTrip.addActionListener(e -> onClient(() -> {

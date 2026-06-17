@@ -78,7 +78,7 @@ public class TrackingServiceDeathAndBankTest {
 
         service.startSession();
         killOnce(service, carried, clock);
-        service.onBankOpened();
+        service.onBankOpened(true);
 
         assertTrue(service.isTracking());
         assertEquals(2, service.currentSnapshot().get().tripNumber);
@@ -195,7 +195,8 @@ public class TrackingServiceDeathAndBankTest {
 
         service.startSession();
         killOnce(service, carried, clock);   // trip 1: kill + pickup
-        service.onBankOpened();              // persists trip 1, starts trip 2
+        service.onBankOpened(true);              // persists trip 1, starts trip 2
+        service.onBankClosed();              // leave the bank before the next kill
         killOnce(service, carried, clock);   // trip 2: kill + pickup
         service.endSession();                // persists trip 2
 
