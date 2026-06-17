@@ -2,6 +2,7 @@ package com.goodrunetracker.adapter.runelite;
 
 import com.goodrunetracker.adapter.CurrentXpSupplier;
 import com.goodrunetracker.adapter.LiveItemValuer;
+import com.goodrunetracker.adapter.TripNamingConfig;
 import com.goodrunetracker.adapter.PotionRegistry;
 import com.goodrunetracker.adapter.SessionHistory;
 import com.goodrunetracker.adapter.SessionStore;
@@ -125,7 +126,8 @@ public class GoodRuneTrackerPlugin extends Plugin {
                 store,
                 panel,
                 Long.toString(client.getAccountHash()),
-                currentXp());
+                currentXp(),
+                namingConfig());
         SessionHistory history = new SessionHistory(store, Long.toString(client.getAccountHash()), names);
         panel.setService(service, true, history);
     }
@@ -141,6 +143,21 @@ public class GoodRuneTrackerPlugin extends Plugin {
                 xp.put(skill.getName(), (long) client.getSkillExperience(skill));
             }
             return xp;
+        };
+    }
+
+    /** Live view over the auto-naming config settings. */
+    private TripNamingConfig namingConfig() {
+        return new TripNamingConfig() {
+            @Override
+            public boolean nameAfterFirstKill() {
+                return config.nameAfterFirstKill();
+            }
+
+            @Override
+            public boolean nameAfterFirstGather() {
+                return config.nameAfterFirstGather();
+            }
         };
     }
 

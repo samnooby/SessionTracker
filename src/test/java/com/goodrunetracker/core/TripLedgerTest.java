@@ -76,6 +76,24 @@ public class TripLedgerTest {
     }
 
     @Test
+    public void reportsTheFirstGatheredItem() {
+        TripLedger ledger = new TripLedger();
+        ledger.updateCarried(carried());
+        ledger.updateCarried(carried(ItemKey.item(1521), 1));                       // first gather: oak log
+        ledger.updateCarried(carried(ItemKey.item(1521), 1, ItemKey.item(377), 1)); // then a raw fish
+        assertEquals(ItemKey.item(1521), ledger.firstGathered());
+    }
+
+    @Test
+    public void firstGatheredIsNullWhenOnlyLootIsPickedUp() {
+        TripLedger ledger = new TripLedger();
+        ledger.updateCarried(carried());
+        ledger.recordKill("x", carried(ItemKey.item(560), 10));
+        ledger.updateCarried(carried(ItemKey.item(560), 10)); // pure loot pickup, not a gather
+        assertNull(ledger.firstGathered());
+    }
+
+    @Test
     public void accumulatesXpPerSkill() {
         TripLedger ledger = new TripLedger();
         ledger.recordXp("RANGED", 5000);

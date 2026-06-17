@@ -31,6 +31,9 @@ public final class TripLedger {
     private final Map<ItemKey, Integer> consumedLoot = new HashMap<>();
     private final Map<String, Long> xp = new HashMap<>();
 
+    // The first item gathered this trip, in encounter order (for auto-naming the session).
+    private ItemKey firstGathered = null;
+
     private Map<ItemKey, Integer> carried = null;
 
     public void recordKill(String npcName, Map<ItemKey, Integer> drops) {
@@ -94,6 +97,9 @@ public final class TripLedger {
         // Any further gain is a non-loot inventory gain (e.g. a gathered resource).
         if (remaining > 0) {
             gathered.merge(key, remaining, Integer::sum);
+            if (firstGathered == null) {
+                firstGathered = key;
+            }
         }
     }
 
@@ -136,6 +142,11 @@ public final class TripLedger {
         } else {
             map.put(key, remaining);
         }
+    }
+
+    /** The first item gathered this trip, or {@code null} if nothing has been gathered yet. */
+    public ItemKey firstGathered() {
+        return firstGathered;
     }
 
     public void recordXp(String skill, long delta) {
