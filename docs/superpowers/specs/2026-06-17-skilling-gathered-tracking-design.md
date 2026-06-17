@@ -31,9 +31,25 @@ the existing pipeline the same way `pickedUp` already flows.
 - New `gathered` bucket: per-`ItemKey` quantities of non-loot inventory gains.
 - GP valuation of gathered items, reusing the existing `ItemValuer` /
   captured-`unitPrices` mechanism.
+- **Profit model** (see below): overall net profit now includes both combat and
+  gathering, with two separate gross profit figures (combat and gather) and supplies
+  shown as a single shared cost line.
 - A dedicated **Gathered** section in the UI (live trip + session/category history)
-  with its own totals and its own averages (per trip and per hour), fully independent
-  of combat net profit.
+  with its own totals and its own averages (per trip and per hour), shown alongside the
+  combat section and the shared supplies cost.
+
+### Profit model
+Supplies are a single undifferentiated bucket and are **not** split by activity, so they
+are reported once as a shared cost rather than charged to either side:
+
+- **Combat profit** = `pickedUpValue` (gross loot value).
+- **Gather profit** = `gatheredValue` (gross gathered value).
+- **Supplies** = `suppliesValue` (shared cost line, shown once).
+- **Overall net profit** = `pickedUpValue + gatheredValue − suppliesValue`.
+
+For pure combat trips `gatheredValue` is 0, so overall net profit equals today's
+`netProfit` — backward compatible. Each side also gets its own per-trip average and
+per-hour figure (see SessionHistory).
 
 ### Out of scope (deferred / follow-up tasks)
 - **Action counts & rates** (logs cut/hr, fish caught/hr). Deferred entirely; the
@@ -43,8 +59,7 @@ the existing pipeline the same way `pickedUp` already flows.
   Limitations).
 - **False-positive filtering** of non-loot, non-gather gains (shop buys, bank
   withdrawals, quest rewards). Acceptable noise for v1.
-- Folding gathered value into `netProfit` — explicitly **not** done; combat profit
-  numbers stay unchanged.
+- Splitting supplies by activity — supplies stay a single shared cost (see Profit model).
 
 ## Design
 
@@ -63,7 +78,13 @@ events, no architectural change.
 - Add `gathered` field, defensive-copied like the others.
 - Add `gathered()` accessor (unmodifiable) and `gatheredValue(ItemValuer)` mirroring
   `pickedUp()` / `pickedUpValue`.
-- `netProfit` and all existing methods unchanged.
+- Profit methods (rename/add for clarity, keeping `pickedUpValue`/`suppliesValue` as the
+  underlying primitives):
+  - `combatProfit(valuer)` = `pickedUpValue(valuer)` (gross loot).
+  - `gatherProfit(valuer)` = `gatheredValue(valuer)` (gross gathered).
+  - `netProfit(valuer)` changes to `pickedUpValue + gatheredValue − suppliesValue`
+    (was `pickedUpValue − suppliesValue`). Pure combat trips are unaffected since
+    `gatheredValue` is 0.
 
 ### 3. `adapter/StoredTrip.java` + `adapter/SessionMapper.java`
 - Add `public Map<String, Integer> gathered;` to `StoredTrip`.
@@ -76,21 +97,25 @@ events, no architectural change.
   mapper must treat null as empty.
 
 ### 4. `adapter/TripSnapshot.java` + `adapter/TrackingService.java`
-- Add `gatheredGp` (and a gathered item breakdown list if the UI needs per-item rows)
-  to `TripSnapshot`.
-- Populate it in the snapshot builder in `TrackingService` using
-  `Trip`/ledger gathered value.
+- Add `gatheredGp` (combat side already has `pickedGp`/`suppliesGp`) and a gathered item
+  breakdown list if the UI needs per-item rows. The overall net (`pickedGp + gatheredGp
+  − suppliesGp`) is derivable in the snapshot builder; add it as a field if convenient.
+- Populate in the snapshot builder in `TrackingService`.
 
 ### 5. `adapter/SessionHistory.java`
-- Add gathered roll-ups to `CategoryDetail`: total gathered GP, average gathered GP per
-  trip, and gathered GP per hour — mirroring the existing `gpPerHour` /
-  `avgNetProfitPerTrip` / `xpAverages` fields. These are the "own averages" for the
-  Gathered section.
+- Extend `CategoryDetail` with parallel sets of profit fields:
+  - **Combat**: combat GP/hr, avg combat profit per trip (from `pickedUpValue`).
+  - **Gather**: gather GP/hr, avg gather profit per trip (from `gatheredValue`).
+  - **Overall**: net GP/hr and avg net profit per trip now reflect combat + gather −
+    supplies. (`gpPerHour` / `avgNetProfitPerTrip` semantics shift accordingly — verify
+    all callers of these expect the new combined meaning.)
+  - Supplies stay a single shared cost figure (existing `supplies`/`avgTotalSupplies`).
 
 ### 6. UI (`adapter/runelite/NowTab.java`, `SessionsTab.java`, `StatsTab.java`)
-- Render a distinct **Gathered** section: total gathered GP and gathered/hr on the Now
-  tab, gathered totals per trip/session on Sessions, and gathered averages per category
-  on Stats. Kept visually separate from the loot/profit section.
+- Three blocks: a **Combat** profit section (loot picked / per-hour), a **Gathered**
+  profit section (gathered value / per-hour, with its own averages on Stats), and the
+  shared **Supplies** cost line — with the **overall net profit** = combat + gather −
+  supplies shown as the headline. Combat and Gather render as visually distinct sections.
 
 ## Data flow
 
@@ -110,6 +135,9 @@ RuneLite client dependencies — unit-test directly, mirroring existing tests:
 - `SessionMapper` round-trips `gathered` through JSON; missing `gathered` (old file)
   deserializes to empty.
 - `Trip.gatheredValue` values via `ItemValuer` like `pickedUpValue`.
+- `Trip.netProfit` = `pickedUpValue + gatheredValue − suppliesValue`; a pure combat trip
+  (no gathered) yields the same value as before; `combatProfit`/`gatherProfit` return
+  the respective gross values.
 
 ## Known limitations (v1)
 
