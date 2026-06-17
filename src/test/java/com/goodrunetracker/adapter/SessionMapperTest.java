@@ -43,6 +43,22 @@ public class SessionMapperTest {
     }
 
     @Test
+    public void roundTripsConsumedLootAndToleratesMissingField() {
+        ItemKey shark = ItemKey.item(385);
+        Map<ItemKey, Integer> consumed = new HashMap<>();
+        consumed.put(shark, 3);
+        Trip trip = new Trip("t1", 0, 60_000, false, new HashMap<>(), new HashMap<>(),
+                new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(), consumed,
+                new HashMap<>());
+        StoredTrip stored = SessionMapper.toStored(trip, new HashMap<>());
+        assertEquals(Integer.valueOf(3), stored.consumedLoot.get("item:385"));
+        assertEquals(Integer.valueOf(3), SessionMapper.toTrip(stored).consumedLoot().get(shark));
+
+        stored.consumedLoot = null; // session saved before this field existed
+        assertTrue(SessionMapper.toTrip(stored).consumedLoot().isEmpty());
+    }
+
+    @Test
     public void roundTripsBackToCoreTrip() {
         Map<ItemKey, Long> prices = new HashMap<>();
         prices.put(ItemKey.item(560), 5L);

@@ -29,6 +29,7 @@ public final class SessionMapper {
         stored.missed = encode(trip.missed());
         stored.suppliesUsed = encode(trip.suppliesUsed());
         stored.gathered = encode(trip.gathered());
+        stored.consumedLoot = encode(trip.consumedLoot());
         stored.xpGained = new HashMap<>(trip.xpGained());
         stored.unitPrices = encodeLong(unitPrices);
         return stored;
@@ -39,7 +40,7 @@ public final class SessionMapper {
                 new HashMap<>(stored.kills),
                 decode(stored.dropped), decode(stored.pickedUp),
                 decode(stored.missed), decode(stored.suppliesUsed),
-                decode(stored.gathered),
+                decode(stored.gathered), decode(stored.consumedLoot),
                 new HashMap<>(stored.xpGained));
     }
 

@@ -45,6 +45,7 @@ final class NowTab extends JPanel {
     private final JLabel ground = Styles.valueLabel(Styles.MISSED);
     private final JLabel supplies = Styles.valueLabel(Styles.NEG);
     private final JLabel gathered = Styles.valueLabel(Styles.GP);
+    private final JLabel usedLoot = Styles.valueLabel(Styles.NEG);
 
     private final JLabel sessTrips = Styles.valueLabel(Styles.TEXT);
     private final JLabel sessNet = Styles.valueLabel(Styles.GP);
@@ -198,6 +199,8 @@ final class NowTab extends JPanel {
         grid.add(supplies);
         grid.add(Styles.keyLabel("Gathered"));
         grid.add(gathered);
+        grid.add(Styles.keyLabel("Used (looted)"));
+        grid.add(usedLoot);
         Styles.capHeight(grid);
         card.add(grid);
 
@@ -352,6 +355,7 @@ final class NowTab extends JPanel {
             ground.setText(GpFormat.format(s.groundGp));
             supplies.setText(GpFormat.format(s.suppliesGp));
             gathered.setText(GpFormat.format(s.gatheredGp));
+            usedLoot.setText(GpFormat.format(s.consumedLootGp));
             elapsed.setText(formatElapsed(s.durationMillis));
             renderXp(s.xpBySkill);
             renderKills(s.killsByNpc);
@@ -363,6 +367,7 @@ final class NowTab extends JPanel {
             ground.setText("-");
             supplies.setText("-");
             gathered.setText("-");
+            usedLoot.setText("-");
             elapsed.setText("");
             renderXp(null);
             renderKills(null);

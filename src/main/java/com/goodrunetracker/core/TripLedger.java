@@ -27,6 +27,8 @@ public final class TripLedger {
     // and recoverable: picking one back up reverses that supply charge.
     private final Map<ItemKey, Integer> droppedBrought = new HashMap<>();
     private final Map<ItemKey, Integer> gathered = new HashMap<>();
+    // Acquired-this-trip items (looted or gathered) that were later consumed: free, so not supplies.
+    private final Map<ItemKey, Integer> consumedLoot = new HashMap<>();
     private final Map<String, Long> xp = new HashMap<>();
 
     private Map<ItemKey, Integer> carried = null;
@@ -64,7 +66,7 @@ public final class TripLedger {
                 if (droppedThisTick.contains(key)) {
                     reverseDrop(key, lost);
                 } else {
-                    suppliesUsed.merge(key, lost, Integer::sum);
+                    consume(key, lost);
                 }
             }
         }
@@ -92,6 +94,22 @@ public final class TripLedger {
         // Any further gain is a non-loot inventory gain (e.g. a gathered resource).
         if (remaining > 0) {
             gathered.merge(key, remaining, Integer::sum);
+        }
+    }
+
+    private void consume(ItemKey key, int lost) {
+        // An item consumed (eaten, buried, burnt, cast...) is a supply only to the extent it
+        // wasn't acquired this trip. Cancel it against this trip's still-unconsumed loot and
+        // gathered resources first; only the remainder was brought, so only that is a supply.
+        int acquired = pickedUp.getOrDefault(key, 0) + gathered.getOrDefault(key, 0);
+        int available = Math.max(0, acquired - consumedLoot.getOrDefault(key, 0));
+        int free = Math.min(lost, available);
+        if (free > 0) {
+            consumedLoot.merge(key, free, Integer::sum);
+        }
+        int brought = lost - free;
+        if (brought > 0) {
+            suppliesUsed.merge(key, brought, Integer::sum);
         }
     }
 
@@ -140,6 +158,6 @@ public final class TripLedger {
             }
         }
         return new Trip(id, startMillis, endMillis, died,
-                kills, dropped, pickedUp, missed, suppliesUsed, gathered, xp);
+                kills, dropped, pickedUp, missed, suppliesUsed, gathered, consumedLoot, xp);
     }
 }

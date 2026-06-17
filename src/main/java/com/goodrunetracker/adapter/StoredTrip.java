@@ -14,6 +14,7 @@ public final class StoredTrip {
     public Map<String, Integer> missed;
     public Map<String, Integer> suppliesUsed;
     public Map<String, Integer> gathered;
+    public Map<String, Integer> consumedLoot;
     public Map<String, Long> xpGained;
     public Map<String, Long> unitPrices;
 }

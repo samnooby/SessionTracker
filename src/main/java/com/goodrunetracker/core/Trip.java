@@ -19,6 +19,9 @@ public final class Trip {
     private final Map<ItemKey, Integer> missed;
     private final Map<ItemKey, Integer> suppliesUsed;
     private final Map<ItemKey, Integer> gathered;
+    // Items acquired this trip (looted or gathered) that were later consumed. They cost
+    // nothing, so they are not supplies; they net against this trip's income instead.
+    private final Map<ItemKey, Integer> consumedLoot;
     private final Map<String, Long> xpGained;
 
     public Trip(String id, long startMillis, long endMillis, boolean died,
@@ -34,6 +37,15 @@ public final class Trip {
                 Map<ItemKey, Integer> pickedUp, Map<ItemKey, Integer> missed,
                 Map<ItemKey, Integer> suppliesUsed, Map<ItemKey, Integer> gathered,
                 Map<String, Long> xpGained) {
+        this(id, startMillis, endMillis, died, kills, dropped, pickedUp, missed,
+                suppliesUsed, gathered, new HashMap<>(), xpGained);
+    }
+
+    public Trip(String id, long startMillis, long endMillis, boolean died,
+                Map<String, Integer> kills, Map<ItemKey, Integer> dropped,
+                Map<ItemKey, Integer> pickedUp, Map<ItemKey, Integer> missed,
+                Map<ItemKey, Integer> suppliesUsed, Map<ItemKey, Integer> gathered,
+                Map<ItemKey, Integer> consumedLoot, Map<String, Long> xpGained) {
         this.id = id;
         this.startMillis = startMillis;
         this.endMillis = endMillis;
@@ -44,6 +56,7 @@ public final class Trip {
         this.missed = new HashMap<>(missed);
         this.suppliesUsed = new HashMap<>(suppliesUsed);
         this.gathered = new HashMap<>(gathered);
+        this.consumedLoot = new HashMap<>(consumedLoot);
         this.xpGained = new HashMap<>(xpGained);
     }
 
@@ -91,6 +104,10 @@ public final class Trip {
         return Collections.unmodifiableMap(gathered);
     }
 
+    public Map<ItemKey, Integer> consumedLoot() {
+        return Collections.unmodifiableMap(consumedLoot);
+    }
+
     public Map<String, Long> xpGained() {
         return Collections.unmodifiableMap(xpGained);
     }
@@ -119,6 +136,10 @@ public final class Trip {
         return value(gathered, valuer);
     }
 
+    public long consumedLootValue(ItemValuer valuer) {
+        return value(consumedLoot, valuer);
+    }
+
     public long suppliesValue(ItemValuer valuer) {
         return value(suppliesUsed, valuer);
     }
@@ -128,7 +149,8 @@ public final class Trip {
     }
 
     public long netProfit(ItemValuer valuer) {
-        return pickedUpValue(valuer) + gatheredValue(valuer) - suppliesValue(valuer);
+        return pickedUpValue(valuer) + gatheredValue(valuer)
+                - consumedLootValue(valuer) - suppliesValue(valuer);
     }
 
     private static long value(Map<ItemKey, Integer> items, ItemValuer valuer) {

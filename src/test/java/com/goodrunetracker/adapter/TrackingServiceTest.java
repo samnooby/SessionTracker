@@ -195,7 +195,7 @@ public class TrackingServiceTest {
     }
 
     @Test
-    public void consumingALootedItemStillCountsAsSupply() throws Exception {
+    public void consumingALootedItemIsNotChargedAsSupply() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
         SessionStore store = new SessionStore(Files.createTempDirectory("grt"));
@@ -210,14 +210,21 @@ public class TrackingServiceTest {
         clock.now = 10_000;
         service.onTick();
 
-        carried.carried.put(385, 1);   // eat 3, NO markDropped
+        carried.carried.put(385, 1);   // eat 3, NO markDropped -> looted, not a supply
         service.markCarriedDirty();
         clock.now = 20_000;
         service.onTick();
 
         TripSnapshot snap = service.currentSnapshot().get();
-        assertEquals(4, snap.pickedGp);
-        assertEquals(3, snap.suppliesGp);
+        assertEquals(4, snap.pickedGp);                  // gross loot preserved
+        assertEquals(0, snap.suppliesGp);                // eaten loot is not a supply
+        assertEquals(1L, service.currentSessionSnapshot().get().netProfit); // kept 1 of 4
+
+        service.endSession();
+        StoredSession saved = store.load("acct-A").get(0);
+        Trip trip = SessionMapper.toTrip(saved.trips.get(0));
+        assertEquals(Integer.valueOf(3), trip.consumedLoot().get(ItemKey.item(385)));
+        assertTrue(trip.suppliesUsed().isEmpty());
     }
 
     @Test
