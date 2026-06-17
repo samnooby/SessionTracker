@@ -287,6 +287,8 @@ public class SessionHistoryTest {
         assertEquals(3000L, d.supplies.get(0).avgGpPerTrip);
         assertEquals(3000L, d.avgTotalSuppliesGpPerTrip);
         assertEquals(3, d.avgKillsPerTrip, 0.0001);
+        // 6000gp supplies over 2h wall-clock -> 3000/hr
+        assertEquals(3000L, d.suppliesGpPerHour);
     }
 
     @Test

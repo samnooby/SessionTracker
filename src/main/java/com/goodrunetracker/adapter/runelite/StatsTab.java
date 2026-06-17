@@ -150,15 +150,20 @@ final class StatsTab extends JPanel {
         detailBody.add(Box.createVerticalStrut(4));
         detailBody.add(tiles(d.gpPerHour, d.xpPerHour));
 
-        JPanel split = new JPanel(new GridLayout(0, 2, 0, 3));
-        split.setBackground(Styles.PANEL);
-        split.setAlignmentX(Component.LEFT_ALIGNMENT);
-        split.add(Styles.keyLabel("Combat GP/hr"));
-        split.add(signedValue(d.combatGpPerHour));
-        split.add(Styles.keyLabel("Gather GP/hr"));
-        split.add(signedValue(d.gatherGpPerHour));
-        Styles.capHeight(split);
-        detailBody.add(split);
+        detailBody.add(Styles.sectionHeader("Per hour"));
+        JPanel perHourCard = Styles.card();
+        JPanel perHour = grid();
+        perHour.add(Styles.keyLabel("Combat GP/hr"));
+        perHour.add(signedValue(d.combatGpPerHour));
+        perHour.add(Styles.keyLabel("Gather GP/hr"));
+        perHour.add(signedValue(d.gatherGpPerHour));
+        perHour.add(Styles.keyLabel("Supplies GP/hr"));
+        JLabel supHr = Styles.valueLabel(Styles.NEG);
+        supHr.setText(GpFormat.format(d.suppliesGpPerHour));
+        perHour.add(supHr);
+        Styles.capHeight(perHour);
+        perHourCard.add(perHour);
+        detailBody.add(perHourCard);
 
         detailBody.add(Styles.sectionHeader("Per-trip averages"));
         JPanel avgCard = Styles.card();
@@ -250,14 +255,18 @@ final class StatsTab extends JPanel {
         cards.show(root, DETAIL);
     }
 
+    /**
+     * A collapsible item-average section. The per-trip total sits (bold) in the clickable
+     * header; the individual item rows stay hidden until the header is expanded, so the
+     * detail view isn't bloated at first viewing.
+     */
     private void addItemTable(String header, List<SessionHistory.ItemAverage> items,
                               long total, Color valueColor) {
-        detailBody.add(Styles.sectionHeader(header));
-        JPanel card = Styles.card();
+        JPanel content = Styles.card();
         if (items.isEmpty()) {
             JLabel none = Styles.keyLabel("None");
             none.setAlignmentX(Component.LEFT_ALIGNMENT);
-            card.add(none);
+            content.add(none);
         } else {
             JPanel g = grid();
             for (SessionHistory.ItemAverage a : items) {
@@ -266,12 +275,41 @@ final class StatsTab extends JPanel {
                 v.setText(GpFormat.format(a.avgGpPerTrip));
                 g.add(v);
             }
-            g.add(boldLabel("Total", Styles.TEXT, SwingConstants.LEADING));
-            g.add(boldLabel(GpFormat.format(total), valueColor, SwingConstants.RIGHT));
             Styles.capHeight(g);
-            card.add(g);
+            content.add(g);
         }
-        detailBody.add(card);
+        content.setVisible(false);
+
+        JLabel caretIcon = new JLabel(Styles.caret(Styles.CARET_RIGHT, Styles.SUBTEXT));
+        JLabel title = new JLabel(header);
+        title.setFont(FontManager.getRunescapeSmallFont());
+        title.setForeground(Styles.TEXT);
+        JPanel left = new JPanel();
+        left.setLayout(new BoxLayout(left, BoxLayout.X_AXIS));
+        left.setBackground(Styles.CARD);
+        left.add(caretIcon);
+        left.add(Box.createHorizontalStrut(6));
+        left.add(title);
+
+        JPanel headerRow = new JPanel(new BorderLayout(6, 0));
+        headerRow.setBackground(Styles.CARD);
+        headerRow.setBorder(new EmptyBorder(6, 9, 6, 9));
+        headerRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        headerRow.add(left, BorderLayout.WEST);
+        headerRow.add(boldLabel(GpFormat.format(total), valueColor, SwingConstants.RIGHT), BorderLayout.EAST);
+        Styles.capHeight(headerRow);
+
+        Styles.clickable(headerRow, () -> {
+            boolean show = !content.isVisible();
+            content.setVisible(show);
+            caretIcon.setIcon(Styles.caret(show ? Styles.CARET_DOWN : Styles.CARET_RIGHT, Styles.SUBTEXT));
+            detailBody.revalidate();
+            detailBody.repaint();
+        });
+
+        detailBody.add(Box.createVerticalStrut(4));
+        detailBody.add(headerRow);
+        detailBody.add(content);
     }
 
     private static JPanel grid() {
