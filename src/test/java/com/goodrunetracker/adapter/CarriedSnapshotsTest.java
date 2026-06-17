@@ -43,4 +43,13 @@ public class CarriedSnapshotsTest {
         assertEquals(Integer.valueOf(150), result.get(556)); // 100 inventory + 50 pouch
         assertEquals(Integer.valueOf(1), result.get(560));
     }
+
+    @Test
+    public void combinesMultipleExtraSources() {
+        Map<Integer, Integer> result = CarriedSnapshots.combine(
+                map(556, 100), map(560, 1), map(556, 50), map(12934, 1000));
+        assertEquals(Integer.valueOf(150), result.get(556));   // 100 inventory + 50 pouch
+        assertEquals(Integer.valueOf(1), result.get(560));
+        assertEquals(Integer.valueOf(1000), result.get(12934)); // charged-item scales
+    }
 }
