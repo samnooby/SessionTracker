@@ -56,17 +56,40 @@ public class TrackingServiceTest {
         }
     }
 
+    private static TripNamingConfig naming(boolean kill, boolean gather) {
+        return new TripNamingConfig() {
+            public boolean nameAfterFirstKill() {
+                return kill;
+            }
+
+            public boolean nameAfterFirstGather() {
+                return gather;
+            }
+        };
+    }
+
     private TrackingService newService(FakeClock clock, FakeCarried carried, FakePanel panel,
                                        SessionStore store) {
-        return newService(clock, carried, panel, store, new FakeXp());
+        return newService(clock, carried, panel, store, new FakeXp(), naming(true, true));
     }
 
     private TrackingService newService(FakeClock clock, FakeCarried carried, FakePanel panel,
                                        SessionStore store, CurrentXpSupplier currentXp) {
+        return newService(clock, carried, panel, store, currentXp, naming(true, true));
+    }
+
+    private TrackingService newService(FakeClock clock, FakeCarried carried, FakePanel panel,
+                                       SessionStore store, TripNamingConfig naming) {
+        return newService(clock, carried, panel, store, new FakeXp(), naming);
+    }
+
+    private TrackingService newService(FakeClock clock, FakeCarried carried, FakePanel panel,
+                                       SessionStore store, CurrentXpSupplier currentXp,
+                                       TripNamingConfig naming) {
         PotionRegistry potions = new PotionRegistry();
         LiveItemValuer valuer = new LiveItemValuer(oneGp, potions);
         return new TrackingService(clock, carried, id -> "Item " + id, potions, valuer, store,
-                panel, "acct-A", currentXp);
+                panel, "acct-A", currentXp, naming);
     }
 
     @Test
@@ -131,6 +154,81 @@ public class TrackingServiceTest {
         assertEquals("Demonic gorilla", saved.get(0).category);
         assertEquals(1, saved.get(0).trips.size());
         assertEquals(Integer.valueOf(100), saved.get(0).trips.get(0).pickedUp.get("item:560"));
+    }
+
+    private String savedCategory(SessionStore store) {
+        return store.load("acct-A").get(0).category;
+    }
+
+    @Test
+    public void firstGatheredItemNamesTheCategoryWhenGatherNamingEnabled() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"));
+        TrackingService service = newService(clock, carried, new FakePanel(), store, naming(true, true));
+
+        service.startSession();          // baseline empty inventory
+        carried.carried.put(1521, 1);    // chop an oak log (no kill)
+        service.markCarriedDirty();
+        clock.now = 10_000;
+        service.onTick();
+        service.endSession();
+
+        assertEquals("Item 1521", savedCategory(store));
+    }
+
+    @Test
+    public void killBeforeGatherWinsWhenBothEnabled() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"));
+        TrackingService service = newService(clock, carried, new FakePanel(), store, naming(true, true));
+
+        service.startSession();
+        service.onKill("Goblin", new HashMap<>());   // kill first
+        carried.carried.put(1521, 1);                // then gather
+        service.markCarriedDirty();
+        clock.now = 10_000;
+        service.onTick();
+        service.endSession();
+
+        assertEquals("Goblin", savedCategory(store));
+    }
+
+    @Test
+    public void killDoesNotNameWhenOnlyGatherNamingEnabled() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"));
+        TrackingService service = newService(clock, carried, new FakePanel(), store, naming(false, true));
+
+        service.startSession();
+        service.onKill("Goblin", new HashMap<>());   // kill naming OFF -> ignored
+        carried.carried.put(377, 1);                 // gather a raw fish -> names it
+        service.markCarriedDirty();
+        clock.now = 10_000;
+        service.onTick();
+        service.endSession();
+
+        assertEquals("Item 377", savedCategory(store));
+    }
+
+    @Test
+    public void noNamingSettingsLeavesCategoryUncategorized() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"));
+        TrackingService service = newService(clock, carried, new FakePanel(), store, naming(false, false));
+
+        service.startSession();
+        service.onKill("Goblin", new HashMap<>());
+        carried.carried.put(1521, 1);
+        service.markCarriedDirty();
+        clock.now = 10_000;
+        service.onTick();
+        service.endSession();
+
+        assertEquals("Uncategorized", savedCategory(store));
     }
 
     @Test
@@ -268,7 +366,7 @@ public class TrackingServiceTest {
         PotionRegistry potions = new PotionRegistry();
         LiveItemValuer live = new LiveItemValuer(prices, potions);
         TrackingService service = new TrackingService(clock, carried, id -> "Item " + id,
-                potions, live, store, new FakePanel(), "acct-A", new FakeXp());
+                potions, live, store, new FakePanel(), "acct-A", new FakeXp(), naming(true, true));
 
         service.startSession();
         Map<Integer, Integer> drop = new HashMap<>();

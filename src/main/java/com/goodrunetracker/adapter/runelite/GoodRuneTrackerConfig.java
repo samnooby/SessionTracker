@@ -17,6 +17,25 @@ public interface GoodRuneTrackerConfig extends Config {
     }
 
     @ConfigItem(
+        keyName = "nameAfterFirstKill",
+        name = "Name trip after first monster killed",
+        description = "Auto-name the session's category after the first monster you kill"
+    )
+    default boolean nameAfterFirstKill() {
+        return true;
+    }
+
+    @ConfigItem(
+        keyName = "nameAfterFirstGather",
+        name = "Name trip after first item gathered",
+        description = "Auto-name the session's category after the first resource you gather "
+                + "(e.g. Oak logs, Tuna). If both naming options are on, whichever you do first wins."
+    )
+    default boolean nameAfterFirstGather() {
+        return true;
+    }
+
+    @ConfigItem(
         keyName = "onGroundThreshold",
         name = "On-ground value threshold",
         description = "Hide left-on-ground items below this gp value in the readout"
