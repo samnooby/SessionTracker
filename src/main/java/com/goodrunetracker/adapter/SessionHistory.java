@@ -109,27 +109,10 @@ public final class SessionHistory {
         Function<Trip, ItemValuer> fn = perTripValuer();
         CategoryStats cs = CategoryStats.from(category, sessions, fn);
         int tripCount = cs.tripCount();
-        java.util.Map<ItemKey, Double> avgQtyByKey = cs.avgSuppliesPerTrip();
-
-        Map<ItemKey, Long> totalGp = new HashMap<>();
-        for (Session s : sessions) {
-            for (Trip t : s.trips()) {
-                ItemValuer v = fn.apply(t);
-                for (Map.Entry<ItemKey, Integer> e : t.suppliesUsed().entrySet()) {
-                    totalGp.merge(e.getKey(), v.value(e.getKey(), e.getValue()), Long::sum);
-                }
-            }
-        }
-        List<SupplyAverage> supplies = new ArrayList<>();
-        long totalSuppliesGp = 0;
-        for (Map.Entry<ItemKey, Long> e : totalGp.entrySet()) {
-            totalSuppliesGp += e.getValue();
-            double avgQty = avgQtyByKey.getOrDefault(e.getKey(), 0.0);
-            long avgGp = tripCount == 0 ? 0 : e.getValue() / tripCount;
-            supplies.add(new SupplyAverage(label(e.getKey()), avgQty, avgGp));
-        }
-        supplies.sort(Comparator.comparingLong((SupplyAverage s) -> s.avgGpPerTrip).reversed());
-        long avgTotalSupplies = tripCount == 0 ? 0 : totalSuppliesGp / tripCount;
+        ItemAverages supplyAvg = itemAverages(sessions, fn, tripCount, Trip::suppliesUsed);
+        ItemAverages pickedAvg = itemAverages(sessions, fn, tripCount, Trip::pickedUp);
+        ItemAverages missedAvg = itemAverages(sessions, fn, tripCount, Trip::missed);
+        ItemAverages droppedAvg = itemAverages(sessions, fn, tripCount, Trip::dropped);
 
         Map<String, Long> skillTotalXp = new TreeMap<>(); // TreeMap -> alphabetical
         long totalWallClock = 0;
@@ -168,7 +151,9 @@ public final class SessionHistory {
 
         return new CategoryDetail(cs.gpPerHour(), cs.xpPerHour(), cs.avgNetProfitPerTrip(),
                 cs.avgMissedPerTrip(), cs.avgTripDurationMillis(), cs.avgKillsPerTrip(),
-                supplies, avgTotalSupplies, xpAverages, killAverages);
+                supplyAvg.items, supplyAvg.avgTotalGpPerTrip, xpAverages, killAverages,
+                pickedAvg.items, pickedAvg.avgTotalGpPerTrip,
+                missedAvg.items, droppedAvg.items, droppedAvg.avgTotalGpPerTrip);
     }
 
     public void rename(String sessionId, String newName) {
@@ -226,6 +211,42 @@ public final class SessionHistory {
         }
         out.sort(Comparator.comparingLong((ItemLine l) -> l.gpValue).reversed());
         return out;
+    }
+
+    private static final class ItemAverages {
+        final List<ItemAverage> items;
+        final long avgTotalGpPerTrip;
+
+        ItemAverages(List<ItemAverage> items, long avgTotalGpPerTrip) {
+            this.items = items;
+            this.avgTotalGpPerTrip = avgTotalGpPerTrip;
+        }
+    }
+
+    private ItemAverages itemAverages(List<Session> sessions, Function<Trip, ItemValuer> fn,
+                                      int tripCount, Function<Trip, Map<ItemKey, Integer>> extractor) {
+        Map<ItemKey, Long> totalQty = new HashMap<>();
+        Map<ItemKey, Long> totalGp = new HashMap<>();
+        for (Session s : sessions) {
+            for (Trip t : s.trips()) {
+                ItemValuer v = fn.apply(t);
+                for (Map.Entry<ItemKey, Integer> e : extractor.apply(t).entrySet()) {
+                    totalQty.merge(e.getKey(), e.getValue().longValue(), Long::sum);
+                    totalGp.merge(e.getKey(), v.value(e.getKey(), e.getValue()), Long::sum);
+                }
+            }
+        }
+        List<ItemAverage> items = new ArrayList<>();
+        long sumGp = 0;
+        for (Map.Entry<ItemKey, Long> e : totalGp.entrySet()) {
+            sumGp += e.getValue();
+            double avgQty = tripCount == 0 ? 0.0 : (double) totalQty.get(e.getKey()) / tripCount;
+            long avgGp = tripCount == 0 ? 0 : e.getValue() / tripCount;
+            items.add(new ItemAverage(label(e.getKey()), avgQty, avgGp));
+        }
+        items.sort(Comparator.comparingLong((ItemAverage a) -> a.avgGpPerTrip).reversed());
+        long avgTotal = tripCount == 0 ? 0 : sumGp / tripCount;
+        return new ItemAverages(items, avgTotal);
     }
 
     private String label(ItemKey key) {
@@ -341,12 +362,12 @@ public final class SessionHistory {
         }
     }
 
-    public static final class SupplyAverage {
+    public static final class ItemAverage {
         public final String label;
         public final double avgQtyPerTrip;
         public final long avgGpPerTrip;
 
-        public SupplyAverage(String label, double avgQtyPerTrip, long avgGpPerTrip) {
+        public ItemAverage(String label, double avgQtyPerTrip, long avgGpPerTrip) {
             this.label = label;
             this.avgQtyPerTrip = avgQtyPerTrip;
             this.avgGpPerTrip = avgGpPerTrip;
@@ -384,15 +405,23 @@ public final class SessionHistory {
         public final long avgMissedPerTrip;
         public final long avgTripDurationMillis;
         public final double avgKillsPerTrip;
-        public final List<SupplyAverage> supplies;
+        public final List<ItemAverage> supplies;
         public final long avgTotalSuppliesGpPerTrip;
         public final List<SkillXpAverage> xpAverages;
         public final List<NpcKillAverage> killAverages;
+        public final List<ItemAverage> pickedAverages;
+        public final long avgPickedGpPerTrip;
+        public final List<ItemAverage> missedAverages;
+        public final List<ItemAverage> droppedAverages;
+        public final long avgDroppedGpPerTrip;
 
         public CategoryDetail(long gpPerHour, long xpPerHour, long avgNetProfitPerTrip,
                               long avgMissedPerTrip, long avgTripDurationMillis, double avgKillsPerTrip,
-                              List<SupplyAverage> supplies, long avgTotalSuppliesGpPerTrip,
-                              List<SkillXpAverage> xpAverages, List<NpcKillAverage> killAverages) {
+                              List<ItemAverage> supplies, long avgTotalSuppliesGpPerTrip,
+                              List<SkillXpAverage> xpAverages, List<NpcKillAverage> killAverages,
+                              List<ItemAverage> pickedAverages, long avgPickedGpPerTrip,
+                              List<ItemAverage> missedAverages, List<ItemAverage> droppedAverages,
+                              long avgDroppedGpPerTrip) {
             this.gpPerHour = gpPerHour;
             this.xpPerHour = xpPerHour;
             this.avgNetProfitPerTrip = avgNetProfitPerTrip;
@@ -403,6 +432,11 @@ public final class SessionHistory {
             this.avgTotalSuppliesGpPerTrip = avgTotalSuppliesGpPerTrip;
             this.xpAverages = xpAverages;
             this.killAverages = killAverages;
+            this.pickedAverages = pickedAverages;
+            this.avgPickedGpPerTrip = avgPickedGpPerTrip;
+            this.missedAverages = missedAverages;
+            this.droppedAverages = droppedAverages;
+            this.avgDroppedGpPerTrip = avgDroppedGpPerTrip;
         }
     }
 }

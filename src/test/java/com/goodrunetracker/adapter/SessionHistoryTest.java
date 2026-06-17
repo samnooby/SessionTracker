@@ -290,6 +290,68 @@ public class SessionHistoryTest {
     }
 
     @Test
+    public void categoryDetailAveragesPickedDroppedAndLeftOnGroundPerItem() throws Exception {
+        Path root = Files.createTempDirectory("grt");
+        SessionStore store = new SessionStore(root);
+        ItemKey coins = ItemKey.item(560);
+        ItemKey scale = ItemKey.item(12934);
+        Map<ItemKey, Long> price = new HashMap<>();
+        price.put(coins, 1L);
+        price.put(scale, 10L);
+
+        Map<ItemKey, Integer> dropped1 = new HashMap<>();
+        dropped1.put(coins, 100);
+        dropped1.put(scale, 4);
+        Map<ItemKey, Integer> picked1 = new HashMap<>();
+        picked1.put(coins, 100);
+        picked1.put(scale, 1);
+        Map<ItemKey, Integer> missed1 = new HashMap<>();
+        missed1.put(scale, 3);
+
+        Map<ItemKey, Integer> dropped2 = new HashMap<>();
+        dropped2.put(coins, 200);
+        Map<ItemKey, Integer> picked2 = new HashMap<>();
+        picked2.put(coins, 200);
+
+        Trip t1 = new Trip("t1", 0, 3_600_000L, false, new HashMap<>(), dropped1,
+                picked1, missed1, new HashMap<>(), new HashMap<>());
+        Trip t2 = new Trip("t2", 3_600_000L, 7_200_000L, false, new HashMap<>(), dropped2,
+                picked2, new HashMap<>(), new HashMap<>(), new HashMap<>());
+        save(store, "acct", "s", "Vorkath", "", 0, 7_200_000L,
+                Arrays.asList(SessionMapper.toStored(t1, price), SessionMapper.toStored(t2, price)));
+
+        SessionHistory history = new SessionHistory(store, "acct", names);
+        SessionHistory.CategoryDetail d = history.categoryDetail("Vorkath");
+
+        // Picked: coins 300qty/300gp, scale 1qty/10gp -> /2 trips; sorted gp desc (coins first)
+        assertEquals(2, d.pickedAverages.size());
+        assertEquals("Item 560", d.pickedAverages.get(0).label);
+        assertEquals(150.0, d.pickedAverages.get(0).avgQtyPerTrip, 0.0001);
+        assertEquals(150L, d.pickedAverages.get(0).avgGpPerTrip);
+        assertEquals("Item 12934", d.pickedAverages.get(1).label);
+        assertEquals(0.5, d.pickedAverages.get(1).avgQtyPerTrip, 0.0001);
+        assertEquals(5L, d.pickedAverages.get(1).avgGpPerTrip);
+        assertEquals(155L, d.avgPickedGpPerTrip);
+
+        // Left on ground (missed): scale 3qty/30gp total -> /2 trips
+        assertEquals(1, d.missedAverages.size());
+        assertEquals("Item 12934", d.missedAverages.get(0).label);
+        assertEquals(1.5, d.missedAverages.get(0).avgQtyPerTrip, 0.0001);
+        assertEquals(15L, d.missedAverages.get(0).avgGpPerTrip);
+        assertEquals(15L, d.avgMissedPerTrip);
+
+        // Gross dropped: coins 300qty/300gp, scale 4qty/40gp -> /2 trips; coins first
+        assertEquals(2, d.droppedAverages.size());
+        assertEquals("Item 560", d.droppedAverages.get(0).label);
+        assertEquals(150.0, d.droppedAverages.get(0).avgQtyPerTrip, 0.0001);
+        assertEquals(150L, d.droppedAverages.get(0).avgGpPerTrip);
+        assertEquals("Item 12934", d.droppedAverages.get(1).label);
+        assertEquals(2.0, d.droppedAverages.get(1).avgQtyPerTrip, 0.0001);
+        assertEquals(20L, d.droppedAverages.get(1).avgGpPerTrip);
+        assertEquals(170L, d.avgDroppedGpPerTrip);
+    }
+
+    @Test
     public void categoryDetailListsPerNpcKillAveragesMostKilledFirst() throws Exception {
         Path root = Files.createTempDirectory("grt");
         SessionStore store = new SessionStore(root);

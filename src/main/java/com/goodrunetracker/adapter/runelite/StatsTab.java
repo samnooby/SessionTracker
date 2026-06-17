@@ -174,7 +174,7 @@ final class StatsTab extends JPanel {
         detailBody.add(Styles.sectionHeader("Avg supplies / trip"));
         JPanel supCard = Styles.card();
         JPanel sup = grid();
-        for (SessionHistory.SupplyAverage s : d.supplies) {
+        for (SessionHistory.ItemAverage s : d.supplies) {
             sup.add(Styles.keyLabel(s.label + "  " + String.format(Locale.US, "%.1f", s.avgQtyPerTrip)));
             JLabel v = Styles.valueLabel(Styles.NEG);
             v.setText(GpFormat.format(s.avgGpPerTrip));
