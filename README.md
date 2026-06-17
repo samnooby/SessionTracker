@@ -1,4 +1,4 @@
-# Good Rune Tracker
+# Session Tracker
 
 A RuneLite plugin that tracks your **trips** and **sessions** so you can see exactly what
 you gained and spent: loot picked up versus left on the ground, supplies consumed, XP, and
@@ -24,7 +24,7 @@ modifies the game interface.
 
 ## Usage
 
-Open the **Good Rune Tracker** panel from the RuneLite sidebar. Tracking starts automatically
+Open the **Session Tracker** panel from the RuneLite sidebar. Tracking starts automatically
 when you log in. The panel has three tabs:
 
 - **Now** — your current trip and session, updating live.
@@ -32,7 +32,7 @@ when you log in. The panel has three tabs:
 - **Stats** — per-category XP and GP averages.
 
 Session history is stored locally under your RuneLite directory
-(`.runelite/goodrunetracker`). Nothing is sent anywhere.
+(`.runelite/sessiontracker`). Nothing is sent anywhere.
 
 ## Building
 

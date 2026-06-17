@@ -1,0 +1,401 @@
+package com.sessiontracker.adapter;
+
+import com.sessiontracker.core.Trip;
+import com.sessiontracker.core.TripLedger;
+import com.sessiontracker.core.item.CarriedNormalizer;
+import com.sessiontracker.core.item.Doses;
+import com.sessiontracker.core.item.ItemKey;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.IntFunction;
+
+/**
+ * Session/trip lifecycle state machine. RuneLite-bound collaborators are injected
+ * as interfaces so this runs headless in tests. While a session is active there is
+ * always exactly one active trip.
+ */
+public final class TrackingService {
+
+    private static final long MILLIS_PER_HOUR = 3_600_000L;
+
+    private final Clock clock;
+    private final CarriedSnapshotSupplier carried;
+    private final IntFunction<String> names;
+    private final PotionRegistry potions;
+    private final LiveItemValuer valuer;
+    private final SessionStore store;
+    private final PanelView panel;
+    private final String accountHash;
+    private final CurrentXpSupplier currentXp;
+    private final TripNamingConfig naming;
+
+    // Invariant: ledger != null implies activeSession != null (a trip only runs inside a session).
+    private StoredSession activeSession;
+    private TripLedger ledger;
+    private String tripId;
+    private long tripStartMillis;
+    private boolean tripDied;
+    private boolean inventoryDirty;
+    private boolean awaitingDeathChoice;
+    private boolean bankOpen;
+    private final Map<String, Long> lastXp = new HashMap<>();
+    private final java.util.Set<ItemKey> droppedThisTick = new java.util.HashSet<>();
+
+    // Snapshot valuation calls RuneLite's ItemManager, which must run on the client
+    // thread. We compute it here (always invoked on the client thread) and cache a
+    // plain value object the Swing panel can read from the EDT without touching the client.
+    private TripSnapshot cachedSnapshot;
+    private SessionSnapshot cachedSessionSnapshot;
+
+    public TrackingService(Clock clock, CarriedSnapshotSupplier carried, IntFunction<String> names,
+                           PotionRegistry potions, LiveItemValuer valuer, SessionStore store,
+                           PanelView panel, String accountHash, CurrentXpSupplier currentXp,
+                           TripNamingConfig naming) {
+        this.clock = clock;
+        this.carried = carried;
+        this.names = names;
+        this.potions = potions;
+        this.valuer = valuer;
+        this.store = store;
+        this.panel = panel;
+        this.accountHash = accountHash;
+        this.currentXp = currentXp;
+        this.naming = naming;
+    }
+
+    public boolean isTracking() {
+        return activeSession != null;
+    }
+
+    public void startSession() {
+        if (activeSession != null) {
+            return;
+        }
+        // Prime every skill's baseline to its current total so the FIRST XP gain of each
+        // skill this session is counted. StatChanged only fires on a change, so without a
+        // baseline the first gain would merely prime lastXp and be lost.
+        lastXp.clear();
+        lastXp.putAll(currentXp.currentXp());
+        activeSession = new StoredSession();
+        activeSession.id = clock.newId();
+        activeSession.accountHash = accountHash;
+        activeSession.category = null;
+        activeSession.name = "";
+        activeSession.startMillis = clock.nowMillis();
+        activeSession.trips = new ArrayList<>();
+        startTrip();
+    }
+
+    private void startTrip() {
+        ledger = new TripLedger();
+        tripId = clock.newId();
+        tripStartMillis = clock.nowMillis();
+        tripDied = false;
+        inventoryDirty = false;
+        awaitingDeathChoice = false;
+        bankOpen = false;
+        ledger.updateCarried(normalize(carried.currentCarried()));
+        refreshCache();
+        panel.refresh();
+    }
+
+    public void markCarriedDirty() {
+        inventoryDirty = true;
+    }
+
+    /** Record that the player just dropped this raw item id (from the "Drop" menu action). */
+    public void markDropped(int rawItemId) {
+        droppedThisTick.add(toKey(rawItemId));
+    }
+
+    private ItemKey toKey(int rawItemId) {
+        return Doses.parse(names.apply(rawItemId))
+                .map(form -> ItemKey.potion(form.family()))
+                .orElse(ItemKey.item(rawItemId));
+    }
+
+    public void onTick() {
+        if (ledger == null || awaitingDeathChoice) {
+            return;
+        }
+        if (inventoryDirty) {
+            Map<ItemKey, Integer> settled = normalize(carried.currentCarried());
+            if (bankOpen) {
+                // Deposits/withdrawals while banking change inventory but aren't supplies or gains.
+                ledger.rebaseline(settled);
+            } else {
+                ledger.updateCarried(settled, droppedThisTick);
+            }
+            inventoryDirty = false;
+        }
+        droppedThisTick.clear();
+        maybeNameAfterGather();
+        refreshCache();
+        panel.refresh();
+    }
+
+    /** Name the session after the first gathered item, if enabled and nothing named it yet. */
+    private void maybeNameAfterGather() {
+        if (activeSession.category == null && naming.nameAfterFirstGather()
+                && ledger.firstGathered() != null) {
+            activeSession.category = label(ledger.firstGathered());
+        }
+    }
+
+    private String label(ItemKey key) {
+        return key.isPotion() ? key.potionFamily() : names.apply(key.itemId());
+    }
+
+    public void onKill(String npc, Map<Integer, Integer> rawDrops) {
+        if (ledger == null || awaitingDeathChoice) {
+            return;
+        }
+        // Name the session after the first monster killed, if enabled and nothing named it
+        // yet (gather may have named it first). User-editable later.
+        if (activeSession.category == null && naming.nameAfterFirstKill()) {
+            activeSession.category = npc;
+        }
+        ledger.recordKill(npc, normalize(rawDrops));
+        refreshCache();
+    }
+
+    public void onXp(String skill, long totalXp) {
+        Long previous = lastXp.put(skill, totalXp);
+        if (previous == null) {
+            return;
+        }
+        long delta = totalXp - previous;
+        if (ledger != null && !awaitingDeathChoice && delta > 0) {
+            ledger.recordXp(skill, delta);
+            refreshCache();
+        }
+    }
+
+    /**
+     * Bank interface opened. Always tracked: while the bank is open, inventory changes are
+     * rebaselined rather than reconciled (see {@link #onTick()}). If {@code endTrip} is set
+     * (the "Auto-end trip at bank" config), opening the bank also rolls the trip.
+     */
+    public void onBankOpened(boolean endTrip) {
+        if (ledger == null || awaitingDeathChoice) {
+            return;
+        }
+        if (endTrip) {
+            rollTrip(); // resets bankOpen, so set the flag after the roll
+        }
+        bankOpen = true;
+    }
+
+    /** Manually end the current trip and start a fresh one (the "End trip" button). */
+    public void endCurrentTrip() {
+        if (ledger == null || awaitingDeathChoice) {
+            return;
+        }
+        rollTrip();
+    }
+
+    private void rollTrip() {
+        endTrip();
+        if (activeSession != null) {
+            startTrip();
+        }
+    }
+
+    /** Bank interface closed. Pin the post-bank inventory as the baseline and resume tracking. */
+    public void onBankClosed() {
+        if (ledger == null || awaitingDeathChoice) {
+            return;
+        }
+        bankOpen = false;
+        ledger.rebaseline(normalize(carried.currentCarried()));
+    }
+
+    public void discardTrip() {
+        ledger = null;
+        if (activeSession != null) {
+            startTrip();
+        }
+    }
+
+    public void onLocalPlayerDeath() {
+        if (ledger == null || awaitingDeathChoice) {
+            return;
+        }
+        tripDied = true;
+        awaitingDeathChoice = true; // stops onTick from feeding the post-death snapshot
+        panel.showDeathPrompt();
+    }
+
+    public void resolveDeath(boolean keep) {
+        if (!awaitingDeathChoice) {
+            return;
+        }
+        awaitingDeathChoice = false;
+        if (keep) {
+            endTrip();
+            if (activeSession != null) {
+                startTrip();
+            }
+        } else {
+            discardTrip();
+        }
+    }
+
+    /**
+     * The latest cached snapshot. Safe to call from any thread (e.g. the Swing EDT) —
+     * it returns a precomputed value object and never touches the client. The cache is
+     * refreshed by {@link #refreshCache()} from the client thread after state changes.
+     */
+    public Optional<TripSnapshot> currentSnapshot() {
+        return Optional.ofNullable(cachedSnapshot);
+    }
+
+    public String activeSessionId() {
+        return activeSession == null ? null : activeSession.id;
+    }
+
+    public Optional<SessionSnapshot> currentSessionSnapshot() {
+        return Optional.ofNullable(cachedSessionSnapshot);
+    }
+
+    public void renameActiveSession(String name) {
+        if (activeSession == null) {
+            return;
+        }
+        activeSession.name = name;
+        if (!activeSession.trips.isEmpty()) {
+            store.save(activeSession);
+        }
+    }
+
+    public void recategorizeActiveSession(String category) {
+        if (activeSession == null) {
+            return;
+        }
+        activeSession.category = category;
+        if (!activeSession.trips.isEmpty()) {
+            store.save(activeSession);
+        }
+    }
+
+    /** Recompute the cached snapshot. MUST be called on the client thread (it values items). */
+    private void refreshCache() {
+        cachedSnapshot = ledger == null ? null : computeSnapshot();
+        cachedSessionSnapshot = activeSession == null ? null : computeSessionSnapshot();
+    }
+
+    private TripSnapshot computeSnapshot() {
+        long now = clock.nowMillis();
+        Trip trip = ledger.build(tripId, tripStartMillis, now, tripDied);
+        // Picked-up and gathered are shown as "kept" (gross minus what we consumed this
+        // trip); the consumed portion is reported separately as used loot. Net is unchanged:
+        // keptPicked + keptGathered already excludes consumed, so we don't subtract it again.
+        long picked = trip.pickedUpKeptValue(valuer);
+        long ground = trip.missedValue(valuer);
+        long supplies = trip.suppliesValue(valuer);
+        long gathered = trip.gatheredKeptValue(valuer);
+        long consumed = trip.consumedLootValue(valuer);
+        long duration = now - tripStartMillis;
+        long net = picked + gathered - supplies;
+        long gpPerHour = duration <= 0 ? 0 : net * MILLIS_PER_HOUR / duration;
+        int tripNumber = activeSession.trips.size() + 1;
+        return new TripSnapshot(tripNumber, duration, trip.totalKills(),
+                picked, ground, supplies, gathered, consumed, trip.totalXp(), gpPerHour,
+                SkillXp.sortedFrom(trip.xpGained()), NpcKills.sortedByCountDesc(trip.kills()));
+    }
+
+    private SessionSnapshot computeSessionSnapshot() {
+        long net = 0;
+        long xp = 0;
+        long gathered = 0;
+        for (StoredTrip st : activeSession.trips) {
+            Trip t = SessionMapper.toTrip(st);
+            FrozenItemValuer frozen = new FrozenItemValuer(SessionMapper.unitPrices(st));
+            net += t.netProfit(frozen);
+            xp += t.totalXp();
+            gathered += t.gatheredKeptValue(frozen);
+        }
+        int tripCount = activeSession.trips.size();
+        if (cachedSnapshot != null) {
+            // pickedGp/gatheredGp are already "kept" (consumed excluded), so don't subtract it.
+            net += cachedSnapshot.pickedGp + cachedSnapshot.gatheredGp - cachedSnapshot.suppliesGp;
+            xp += cachedSnapshot.totalXp;
+            gathered += cachedSnapshot.gatheredGp;
+            tripCount += 1;
+        }
+        long wallClock = clock.nowMillis() - activeSession.startMillis;
+        long gpPerHour = wallClock <= 0 ? 0 : net * MILLIS_PER_HOUR / wallClock;
+        return new SessionSnapshot(tripCount, net, xp, gpPerHour, gathered);
+    }
+
+    public void endSession() {
+        if (activeSession == null) {
+            return;
+        }
+        if (awaitingDeathChoice) {
+            // Session ended with an unconfirmed death: drop the dead trip rather than
+            // persisting one the user never chose to keep.
+            ledger = null;
+            awaitingDeathChoice = false;
+        }
+        if (ledger != null) {
+            endTrip();
+        }
+        if (activeSession.category == null) {
+            activeSession.category = "Uncategorized";
+        }
+        activeSession.endMillis = clock.nowMillis();
+        if (!activeSession.trips.isEmpty()) {
+            store.save(activeSession);
+        }
+        activeSession = null;
+        ledger = null;
+        refreshCache();
+        panel.refresh();
+    }
+
+    private void endTrip() {
+        if (ledger == null) {
+            return;
+        }
+        Trip trip = ledger.build(tripId, tripStartMillis, clock.nowMillis(), tripDied);
+        ledger = null;
+        if (trip.totalKills() == 0 && trip.suppliesUsed().isEmpty() && trip.totalXp() == 0
+                && trip.gathered().isEmpty()) {
+            return;
+        }
+        Map<ItemKey, Long> unitPrices = captureUnitPrices(trip);
+        activeSession.trips.add(SessionMapper.toStored(trip, unitPrices));
+        activeSession.endMillis = trip.endMillis();
+        store.save(activeSession);
+    }
+
+    private Map<ItemKey, Long> captureUnitPrices(Trip trip) {
+        Map<ItemKey, Long> prices = new HashMap<>();
+        for (ItemKey key : allKeys(trip)) {
+            prices.put(key, valuer.unitValue(key));
+        }
+        return prices;
+    }
+
+    private static Set<ItemKey> allKeys(Trip trip) {
+        Set<ItemKey> keys = new HashSet<>();
+        keys.addAll(trip.dropped().keySet());
+        keys.addAll(trip.pickedUp().keySet());
+        keys.addAll(trip.missed().keySet());
+        keys.addAll(trip.suppliesUsed().keySet());
+        keys.addAll(trip.gathered().keySet());
+        keys.addAll(trip.consumedLoot().keySet());
+        return keys;
+    }
+
+    private Map<ItemKey, Integer> normalize(Map<Integer, Integer> raw) {
+        // Register potion families on the raw ids before they collapse into dose-keys.
+        raw.forEach((id, qty) -> potions.observe(id, names.apply(id)));
+        return CarriedNormalizer.normalize(raw, names);
+    }
+}

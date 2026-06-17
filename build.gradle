@@ -2,7 +2,7 @@ plugins {
     id 'java'
 }
 
-group = 'com.goodrunetracker'
+group = 'com.sessiontracker'
 version = '1.0'
 
 repositories {
@@ -17,7 +17,7 @@ repositories {
 }
 
 def runeLiteVersion = 'latest.release'
-def pluginMainClass = 'com.goodrunetracker.adapter.runelite.GoodRuneTrackerPluginRun'
+def pluginMainClass = 'com.sessiontracker.adapter.runelite.SessionTrackerPluginRun'
 
 dependencies {
     compileOnly group: 'net.runelite', name: 'client', version: runeLiteVersion
@@ -86,9 +86,9 @@ def jdk11Java = [
 
 tasks.register('runClient', JavaExec) {
     group = 'application'
-    description = 'Launch a development RuneLite client with the Good Rune Tracker plugin loaded'
+    description = 'Launch a development RuneLite client with the Session Tracker plugin loaded'
     classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.goodrunetracker.adapter.runelite.GoodRuneTrackerPluginRun'
+    mainClass = 'com.sessiontracker.adapter.runelite.SessionTrackerPluginRun'
     args = ['--developer-mode']
     enableAssertions = true  // RuneLite's dev plugin loader requires -ea
     if (jdk11Java != null) {
