@@ -171,20 +171,10 @@ final class StatsTab extends JPanel {
         avgCard.add(avg);
         detailBody.add(avgCard);
 
-        detailBody.add(Styles.sectionHeader("Avg supplies / trip"));
-        JPanel supCard = Styles.card();
-        JPanel sup = grid();
-        for (SessionHistory.ItemAverage s : d.supplies) {
-            sup.add(Styles.keyLabel(s.label + "  " + String.format(Locale.US, "%.1f", s.avgQtyPerTrip)));
-            JLabel v = Styles.valueLabel(Styles.NEG);
-            v.setText(GpFormat.format(s.avgGpPerTrip));
-            sup.add(v);
-        }
-        sup.add(boldLabel("Total", Styles.TEXT, SwingConstants.LEADING));
-        sup.add(boldLabel(GpFormat.format(d.avgTotalSuppliesGpPerTrip), Styles.NEG, SwingConstants.RIGHT));
-        Styles.capHeight(sup);
-        supCard.add(sup);
-        detailBody.add(supCard);
+        addItemTable("Avg picked up / trip", d.pickedAverages, d.avgPickedGpPerTrip, Styles.GP);
+        addItemTable("Avg supplies / trip", d.supplies, d.avgTotalSuppliesGpPerTrip, Styles.NEG);
+        addItemTable("Avg left on ground / trip", d.missedAverages, d.avgMissedPerTrip, Styles.MISSED);
+        addItemTable("Gross avg drops / trip", d.droppedAverages, d.avgDroppedGpPerTrip, Styles.TEXT);
 
         detailBody.add(Styles.sectionHeader("XP averages"));
         JPanel xpCard = Styles.card();
@@ -247,6 +237,30 @@ final class StatsTab extends JPanel {
         detailBody.revalidate();
         detailBody.repaint();
         cards.show(root, DETAIL);
+    }
+
+    private void addItemTable(String header, List<SessionHistory.ItemAverage> items,
+                              long total, Color valueColor) {
+        detailBody.add(Styles.sectionHeader(header));
+        JPanel card = Styles.card();
+        if (items.isEmpty()) {
+            JLabel none = Styles.keyLabel("None");
+            none.setAlignmentX(Component.LEFT_ALIGNMENT);
+            card.add(none);
+        } else {
+            JPanel g = grid();
+            for (SessionHistory.ItemAverage a : items) {
+                g.add(Styles.keyLabel(a.label + "  " + String.format(Locale.US, "%.1f", a.avgQtyPerTrip)));
+                JLabel v = Styles.valueLabel(valueColor);
+                v.setText(GpFormat.format(a.avgGpPerTrip));
+                g.add(v);
+            }
+            g.add(boldLabel("Total", Styles.TEXT, SwingConstants.LEADING));
+            g.add(boldLabel(GpFormat.format(total), valueColor, SwingConstants.RIGHT));
+            Styles.capHeight(g);
+            card.add(g);
+        }
+        detailBody.add(card);
     }
 
     private static JPanel grid() {
