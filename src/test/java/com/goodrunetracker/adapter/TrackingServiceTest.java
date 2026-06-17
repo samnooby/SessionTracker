@@ -246,7 +246,8 @@ public class TrackingServiceTest {
         service.onTick();
 
         TripSnapshot snap = service.currentSnapshot().get();
-        assertEquals(4, snap.pickedGp);                  // gross loot preserved
+        assertEquals(1, snap.pickedGp);                  // only the 1 still held shows as picked up
+        assertEquals(3, snap.consumedLootGp);            // the 3 eaten show as used loot
         assertEquals(0, snap.suppliesGp);                // eaten loot is not a supply
         assertEquals(1L, service.currentSessionSnapshot().get().netProfit); // kept 1 of 4
 

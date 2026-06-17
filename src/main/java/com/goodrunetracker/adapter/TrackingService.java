@@ -238,13 +238,16 @@ public final class TrackingService {
     private TripSnapshot computeSnapshot() {
         long now = clock.nowMillis();
         Trip trip = ledger.build(tripId, tripStartMillis, now, tripDied);
-        long picked = trip.pickedUpValue(valuer);
+        // Picked-up and gathered are shown as "kept" (gross minus what we consumed this
+        // trip); the consumed portion is reported separately as used loot. Net is unchanged:
+        // keptPicked + keptGathered already excludes consumed, so we don't subtract it again.
+        long picked = trip.pickedUpKeptValue(valuer);
         long ground = trip.missedValue(valuer);
         long supplies = trip.suppliesValue(valuer);
-        long gathered = trip.gatheredValue(valuer);
+        long gathered = trip.gatheredKeptValue(valuer);
         long consumed = trip.consumedLootValue(valuer);
         long duration = now - tripStartMillis;
-        long net = picked + gathered - consumed - supplies;
+        long net = picked + gathered - supplies;
         long gpPerHour = duration <= 0 ? 0 : net * MILLIS_PER_HOUR / duration;
         int tripNumber = activeSession.trips.size() + 1;
         return new TripSnapshot(tripNumber, duration, trip.totalKills(),
@@ -261,12 +264,12 @@ public final class TrackingService {
             FrozenItemValuer frozen = new FrozenItemValuer(SessionMapper.unitPrices(st));
             net += t.netProfit(frozen);
             xp += t.totalXp();
-            gathered += t.gatheredValue(frozen);
+            gathered += t.gatheredKeptValue(frozen);
         }
         int tripCount = activeSession.trips.size();
         if (cachedSnapshot != null) {
-            net += cachedSnapshot.pickedGp + cachedSnapshot.gatheredGp
-                    - cachedSnapshot.consumedLootGp - cachedSnapshot.suppliesGp;
+            // pickedGp/gatheredGp are already "kept" (consumed excluded), so don't subtract it.
+            net += cachedSnapshot.pickedGp + cachedSnapshot.gatheredGp - cachedSnapshot.suppliesGp;
             xp += cachedSnapshot.totalXp;
             gathered += cachedSnapshot.gatheredGp;
             tripCount += 1;

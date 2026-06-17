@@ -266,6 +266,44 @@ public class SessionHistoryTest {
     }
 
     @Test
+    public void categoryDetailSeparatesUsedLootFromKeptPickedAndGathered() throws Exception {
+        Path root = Files.createTempDirectory("grt");
+        SessionStore store = new SessionStore(root);
+        ItemKey shark = ItemKey.item(385);
+        ItemKey logs = ItemKey.item(1511);
+        Map<ItemKey, Long> price = new HashMap<>();
+        price.put(shark, 10L);
+        price.put(logs, 5L);
+        // 1 trip: looted 4 sharks (ate 3), gathered 5 logs (burned 2).
+        Map<ItemKey, Integer> picked = new HashMap<>();
+        picked.put(shark, 4);
+        Map<ItemKey, Integer> gathered = new HashMap<>();
+        gathered.put(logs, 5);
+        Map<ItemKey, Integer> consumed = new HashMap<>();
+        consumed.put(shark, 3);
+        consumed.put(logs, 2);
+        Trip t = new Trip("t1", 0, 3_600_000L, false, new HashMap<>(), new HashMap<>(),
+                picked, new HashMap<>(), new HashMap<>(), gathered, consumed, new HashMap<>());
+        save(store, "acct", "s", "Mixed", "", 0, 3_600_000L,
+                Arrays.asList(SessionMapper.toStored(t, price)));
+
+        SessionHistory history = new SessionHistory(store, "acct", names);
+        SessionHistory.CategoryDetail d = history.categoryDetail("Mixed");
+
+        // Picked up shows only what's kept: 1 shark (10gp), not the gross 4.
+        assertEquals(1, d.pickedAverages.size());
+        assertEquals(1.0, d.pickedAverages.get(0).avgQtyPerTrip, 0.0001);
+        assertEquals(10L, d.avgPickedGpPerTrip);
+        // Gathered shows kept: 3 logs (15gp).
+        assertEquals(1, d.gatheredAverages.size());
+        assertEquals(3.0, d.gatheredAverages.get(0).avgQtyPerTrip, 0.0001);
+        assertEquals(15L, d.avgGatheredGpPerTrip);
+        // Used loot is its own section: 3 sharks (30gp) + 2 logs (10gp) = 40gp.
+        assertEquals(2, d.usedLootAverages.size());
+        assertEquals(40L, d.avgUsedLootGpPerTrip);
+    }
+
+    @Test
     public void categoryDetailAveragesSuppliesPerTripWithTotal() throws Exception {
         Path root = Files.createTempDirectory("grt");
         SessionStore store = new SessionStore(root);

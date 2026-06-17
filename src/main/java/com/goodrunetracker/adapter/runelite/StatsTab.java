@@ -188,6 +188,7 @@ final class StatsTab extends JPanel {
 
         addItemTable("Avg picked up / trip", d.pickedAverages, d.avgPickedGpPerTrip, Styles.GP);
         addItemTable("Avg gathered / trip", d.gatheredAverages, d.avgGatheredGpPerTrip, Styles.GP);
+        addItemTable("Avg used loot / trip", d.usedLootAverages, d.avgUsedLootGpPerTrip, Styles.TEXT);
         addItemTable("Avg supplies / trip", d.supplies, d.avgTotalSuppliesGpPerTrip, Styles.NEG);
         addItemTable("Avg left on ground / trip", d.missedAverages, d.avgMissedPerTrip, Styles.MISSED);
         addItemTable("Gross avg drops / trip", d.droppedAverages, d.avgDroppedGpPerTrip, Styles.TEXT);

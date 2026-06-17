@@ -210,6 +210,33 @@ public class TripLedgerTest {
     }
 
     @Test
+    public void keptViewsExcludeConsumedLootButLeaveGrossIntact() {
+        // Loot 4 sharks, eat 3: gross picked stays 4, but "kept" is the 1 you still have.
+        TripLedger ledger = new TripLedger();
+        ledger.updateCarried(carried());
+        ledger.recordKill("x", carried(ItemKey.item(385), 4));
+        ledger.updateCarried(carried(ItemKey.item(385), 4));
+        ledger.updateCarried(carried(ItemKey.item(385), 1));
+        Trip trip = ledger.build("t1", 0, 60_000, false);
+        assertEquals(Integer.valueOf(4), trip.pickedUp().get(ItemKey.item(385)));     // gross intact
+        assertEquals(Integer.valueOf(1), trip.pickedUpKept().get(ItemKey.item(385))); // kept
+        assertEquals(1, trip.pickedUpKeptValue(oneGp));
+    }
+
+    @Test
+    public void keptGatheredExcludesConsumedGatheredItems() {
+        // Cut 5 logs, burn 2: gathered-kept is 3.
+        TripLedger ledger = new TripLedger();
+        ledger.updateCarried(carried());
+        ledger.updateCarried(carried(ItemKey.item(1511), 5));
+        ledger.updateCarried(carried(ItemKey.item(1511), 3));
+        Trip trip = ledger.build("t1", 0, 60_000, false);
+        assertEquals(Integer.valueOf(5), trip.gathered().get(ItemKey.item(1511)));     // gross intact
+        assertEquals(Integer.valueOf(3), trip.gatheredKept().get(ItemKey.item(1511))); // kept
+        assertEquals(3, trip.gatheredKeptValue(oneGp));
+    }
+
+    @Test
     public void consumingMoreThanAcquiredChargesOnlyTheExcessAsSupply() {
         // Brought 2 sharks, loot 2 more, eat 3: 2 cancel against loot, 1 is a real supply.
         TripLedger ledger = new TripLedger();
