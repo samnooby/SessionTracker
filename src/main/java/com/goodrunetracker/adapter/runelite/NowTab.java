@@ -48,6 +48,7 @@ final class NowTab extends JPanel {
 
     private final JLabel sessTrips = Styles.valueLabel(Styles.TEXT);
     private final JLabel sessNet = Styles.valueLabel(Styles.GP);
+    private final JLabel sessGathered = Styles.valueLabel(Styles.GP);
     private final JLabel sessXp = Styles.valueLabel(Styles.XP);
     private final JLabel sessGpHr = Styles.valueLabel(Styles.GP);
 
@@ -249,6 +250,8 @@ final class NowTab extends JPanel {
         grid.add(sessTrips);
         grid.add(Styles.keyLabel("Net profit"));
         grid.add(sessNet);
+        grid.add(Styles.keyLabel("Gathered"));
+        grid.add(sessGathered);
         grid.add(Styles.keyLabel("Total XP"));
         grid.add(sessXp);
         grid.add(Styles.keyLabel("GP/hr"));
@@ -369,12 +372,14 @@ final class NowTab extends JPanel {
             SessionSnapshot s = sess.get();
             sessTrips.setText(Integer.toString(s.tripCount));
             setSigned(sessNet, s.netProfit);
+            sessGathered.setText(GpFormat.format(s.gatheredGp));
             sessXp.setText(GpFormat.format(s.totalXp));
             setSigned(sessGpHr, s.gpPerHour);
         } else {
             sessTrips.setText("-");
             sessNet.setText("-");
             sessNet.setForeground(Styles.GP);
+            sessGathered.setText("-");
             sessXp.setText("-");
             sessGpHr.setText("-");
             sessGpHr.setForeground(Styles.GP);
