@@ -11,13 +11,15 @@ public final class TripSnapshot {
     public final long groundGp;
     public final long suppliesGp;
     public final long gatheredGp;
+    public final long consumedLootGp;
     public final long totalXp;
     public final long gpPerHour;
     public final List<SkillXp> xpBySkill;
     public final List<NpcKills> killsByNpc;
 
     public TripSnapshot(int tripNumber, long durationMillis, int kills, long pickedGp,
-                        long groundGp, long suppliesGp, long gatheredGp, long totalXp, long gpPerHour,
+                        long groundGp, long suppliesGp, long gatheredGp, long consumedLootGp,
+                        long totalXp, long gpPerHour,
                         List<SkillXp> xpBySkill, List<NpcKills> killsByNpc) {
         this.tripNumber = tripNumber;
         this.durationMillis = durationMillis;
@@ -26,6 +28,7 @@ public final class TripSnapshot {
         this.groundGp = groundGp;
         this.suppliesGp = suppliesGp;
         this.gatheredGp = gatheredGp;
+        this.consumedLootGp = consumedLootGp;
         this.totalXp = totalXp;
         this.gpPerHour = gpPerHour;
         this.xpBySkill = xpBySkill;

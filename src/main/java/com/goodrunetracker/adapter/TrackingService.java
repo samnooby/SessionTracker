@@ -236,12 +236,13 @@ public final class TrackingService {
         long ground = trip.missedValue(valuer);
         long supplies = trip.suppliesValue(valuer);
         long gathered = trip.gatheredValue(valuer);
+        long consumed = trip.consumedLootValue(valuer);
         long duration = now - tripStartMillis;
-        long net = picked + gathered - supplies;
+        long net = picked + gathered - consumed - supplies;
         long gpPerHour = duration <= 0 ? 0 : net * MILLIS_PER_HOUR / duration;
         int tripNumber = activeSession.trips.size() + 1;
         return new TripSnapshot(tripNumber, duration, trip.totalKills(),
-                picked, ground, supplies, gathered, trip.totalXp(), gpPerHour,
+                picked, ground, supplies, gathered, consumed, trip.totalXp(), gpPerHour,
                 SkillXp.sortedFrom(trip.xpGained()), NpcKills.sortedByCountDesc(trip.kills()));
     }
 
@@ -258,7 +259,8 @@ public final class TrackingService {
         }
         int tripCount = activeSession.trips.size();
         if (cachedSnapshot != null) {
-            net += cachedSnapshot.pickedGp + cachedSnapshot.gatheredGp - cachedSnapshot.suppliesGp;
+            net += cachedSnapshot.pickedGp + cachedSnapshot.gatheredGp
+                    - cachedSnapshot.consumedLootGp - cachedSnapshot.suppliesGp;
             xp += cachedSnapshot.totalXp;
             gathered += cachedSnapshot.gatheredGp;
             tripCount += 1;
@@ -325,6 +327,7 @@ public final class TrackingService {
         keys.addAll(trip.missed().keySet());
         keys.addAll(trip.suppliesUsed().keySet());
         keys.addAll(trip.gathered().keySet());
+        keys.addAll(trip.consumedLoot().keySet());
         return keys;
     }
 

@@ -92,10 +92,11 @@ public class TripLedgerTest {
         ledger.updateCarried(carried(ItemKey.item(560), 0));
         ledger.recordKill("x", carried(ItemKey.item(560), 100));
         ledger.updateCarried(carried(ItemKey.item(560), 100)); // picked all up
-        ledger.updateCarried(carried(ItemKey.item(560), 80));  // used 20
+        ledger.updateCarried(carried(ItemKey.item(560), 80));  // used 20 (of looted -> consumedLoot)
         Trip trip = ledger.build("t1", 0, 60_000, false);
         assertEquals(100, trip.pickedUpValue(oneGp));
-        assertEquals(20, trip.suppliesValue(oneGp));
+        assertEquals(0, trip.suppliesValue(oneGp));            // consumed items were looted, not brought
+        assertEquals(20, trip.consumedLootValue(oneGp));
         assertEquals(80, trip.netProfit(oneGp));
     }
 
@@ -165,15 +166,62 @@ public class TripLedgerTest {
     }
 
     @Test
-    public void consumingALootedItemIsStillASupplyNotADrop() {
+    public void consumingALootedItemIsNotASupply() {
+        // Loot 4 sharks then eat 3: the 3 eaten were free this trip, not a supply we brought.
         TripLedger ledger = new TripLedger();
         ledger.updateCarried(carried());
         ledger.recordKill("x", carried(ItemKey.item(385), 4));             // dropped 4 sharks
         ledger.updateCarried(carried(ItemKey.item(385), 4));               // pick up 4
         ledger.updateCarried(carried(ItemKey.item(385), 1));               // eat 3 (no drop set)
         Trip trip = ledger.build("t1", 0, 60_000, false);
-        assertEquals(Integer.valueOf(4), trip.pickedUp().get(ItemKey.item(385)));
-        assertEquals(Integer.valueOf(3), trip.suppliesUsed().get(ItemKey.item(385)));
+        assertEquals(Integer.valueOf(4), trip.pickedUp().get(ItemKey.item(385))); // gross loot preserved
+        assertTrue(trip.suppliesUsed().isEmpty());                          // nothing brought was spent
+        assertEquals(Integer.valueOf(3), trip.consumedLoot().get(ItemKey.item(385)));
+        assertEquals(1, trip.netProfit(oneGp));                             // kept 1 of 4
+    }
+
+    @Test
+    public void buryingLootedBonesCostsNothingAndIsNotLeftOnGround() {
+        // The motivating bug: loot bones, bury them -> no supply charge, not "left on ground", net 0.
+        ItemKey bones = ItemKey.item(526);
+        TripLedger ledger = new TripLedger();
+        ledger.updateCarried(carried());
+        ledger.recordKill("x", carried(bones, 1));
+        ledger.updateCarried(carried(bones, 1));                            // pick up the bones
+        ledger.updateCarried(carried());                                   // bury them (no drop set)
+        Trip trip = ledger.build("t1", 0, 60_000, false);
+        assertTrue(trip.suppliesUsed().isEmpty());
+        assertNull(trip.missed().get(bones));                              // not left on the ground
+        assertEquals(Integer.valueOf(1), trip.consumedLoot().get(bones));
+        assertEquals(0, trip.netProfit(oneGp));
+    }
+
+    @Test
+    public void consumingAGatheredItemIsNotASupply() {
+        TripLedger ledger = new TripLedger();
+        ledger.updateCarried(carried());
+        ledger.updateCarried(carried(ItemKey.item(1511), 5));              // chop 5 logs (gathered)
+        ledger.updateCarried(carried(ItemKey.item(1511), 3));              // burn/use 2 (no drop set)
+        Trip trip = ledger.build("t1", 0, 60_000, false);
+        assertEquals(Integer.valueOf(5), trip.gathered().get(ItemKey.item(1511))); // gross gathered preserved
+        assertTrue(trip.suppliesUsed().isEmpty());
+        assertEquals(Integer.valueOf(2), trip.consumedLoot().get(ItemKey.item(1511)));
+        assertEquals(3, trip.netProfit(oneGp));
+    }
+
+    @Test
+    public void consumingMoreThanAcquiredChargesOnlyTheExcessAsSupply() {
+        // Brought 2 sharks, loot 2 more, eat 3: 2 cancel against loot, 1 is a real supply.
+        TripLedger ledger = new TripLedger();
+        ledger.updateCarried(carried(ItemKey.item(385), 2));               // brought 2
+        ledger.recordKill("x", carried(ItemKey.item(385), 2));             // dropped 2
+        ledger.updateCarried(carried(ItemKey.item(385), 4));               // pick up the 2 -> total 4
+        ledger.updateCarried(carried(ItemKey.item(385), 1));               // eat 3
+        Trip trip = ledger.build("t1", 0, 60_000, false);
+        assertEquals(Integer.valueOf(2), trip.pickedUp().get(ItemKey.item(385)));
+        assertEquals(Integer.valueOf(2), trip.consumedLoot().get(ItemKey.item(385)));
+        assertEquals(Integer.valueOf(1), trip.suppliesUsed().get(ItemKey.item(385)));
+        assertEquals(-1, trip.netProfit(oneGp));                           // picked 2 - consumed 2 - supply 1
     }
 
     @Test
