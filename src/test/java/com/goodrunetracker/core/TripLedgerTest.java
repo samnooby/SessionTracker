@@ -214,4 +214,37 @@ public class TripLedgerTest {
         Trip trip = ledger.build("t1", 0, 60_000, false);
         assertEquals(Integer.valueOf(1), trip.suppliesUsed().get(ItemKey.item(1265)));
     }
+
+    @Test
+    public void nonLootGainIsCapturedAsGathered() {
+        TripLedger ledger = new TripLedger();
+        ledger.updateCarried(carried());                       // baseline empty, no kills
+        ledger.updateCarried(carried(ItemKey.item(1511), 27)); // chopped 27 logs
+        Trip trip = ledger.build("t1", 0, 60_000, false);
+        assertEquals(Integer.valueOf(27), trip.gathered().get(ItemKey.item(1511)));
+        assertTrue(trip.pickedUp().isEmpty());
+    }
+
+    @Test
+    public void gainBeyondGroundPoolGoesToGatheredNotMissed() {
+        TripLedger ledger = new TripLedger();
+        ledger.updateCarried(carried());                       // baseline empty
+        ledger.recordKill("x", carried(ItemKey.item(560), 30));
+        ledger.updateCarried(carried(ItemKey.item(560), 50));  // 30 is loot, 20 is a generic gain
+        Trip trip = ledger.build("t1", 0, 60_000, false);
+        assertEquals(Integer.valueOf(30), trip.pickedUp().get(ItemKey.item(560)));
+        assertEquals(Integer.valueOf(20), trip.gathered().get(ItemKey.item(560)));
+    }
+
+    @Test
+    public void netProfitIncludesGatheredMinusSupplies() {
+        TripLedger ledger = new TripLedger();
+        ledger.updateCarried(carried(ItemKey.item(385), 5));   // brought 5 sharks
+        ledger.updateCarried(carried(ItemKey.item(385), 3,
+                ItemKey.item(1511), 100));                     // ate 2 sharks, gathered 100 logs
+        Trip trip = ledger.build("t1", 0, 60_000, false);
+        assertEquals(100, trip.gatheredValue(oneGp));
+        assertEquals(2, trip.suppliesValue(oneGp));
+        assertEquals(98, trip.netProfit(oneGp));               // 0 picked + 100 gathered - 2 supplies
+    }
 }

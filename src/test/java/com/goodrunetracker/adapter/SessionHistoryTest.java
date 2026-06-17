@@ -381,6 +381,72 @@ public class SessionHistoryTest {
     }
 
     @Test
+    public void categoryDetailAveragesGatheredPerItemAndSplitsGpPerHour() throws Exception {
+        Path root = Files.createTempDirectory("grt");
+        SessionStore store = new SessionStore(root);
+        ItemKey coins = ItemKey.item(560);
+        ItemKey logs = ItemKey.item(1511);
+        Map<ItemKey, Long> price = new HashMap<>();
+        price.put(coins, 1L);
+        price.put(logs, 10L);
+
+        // Trip A: picked 100 coins (combat), gathered 20 logs. 1h.
+        Map<ItemKey, Integer> pickedA = new HashMap<>();
+        pickedA.put(coins, 100);
+        Map<ItemKey, Integer> gatheredA = new HashMap<>();
+        gatheredA.put(logs, 20);
+        Trip t1 = new Trip("t1", 0, 3_600_000L, false, new HashMap<>(), new HashMap<>(),
+                pickedA, new HashMap<>(), new HashMap<>(), gatheredA, new HashMap<>());
+        // Trip B: gathered 40 logs only. 1h.
+        Map<ItemKey, Integer> gatheredB = new HashMap<>();
+        gatheredB.put(logs, 40);
+        Trip t2 = new Trip("t2", 3_600_000L, 7_200_000L, false, new HashMap<>(), new HashMap<>(),
+                new HashMap<>(), new HashMap<>(), new HashMap<>(), gatheredB, new HashMap<>());
+        save(store, "acct", "s", "Woodcutting", "", 0, 7_200_000L,
+                Arrays.asList(SessionMapper.toStored(t1, price), SessionMapper.toStored(t2, price)));
+
+        SessionHistory history = new SessionHistory(store, "acct", names);
+        SessionHistory.CategoryDetail d = history.categoryDetail("Woodcutting");
+
+        // Gathered: logs 60qty / 600gp total over 2 trips -> 30qty, 300gp avg
+        assertEquals(1, d.gatheredAverages.size());
+        assertEquals("Item 1511", d.gatheredAverages.get(0).label);
+        assertEquals(30.0, d.gatheredAverages.get(0).avgQtyPerTrip, 0.0001);
+        assertEquals(300L, d.gatheredAverages.get(0).avgGpPerTrip);
+        assertEquals(300L, d.avgGatheredGpPerTrip);
+
+        // 2h wall-clock: combat 100gp -> 50/hr; gather 600gp -> 300/hr; overall net 700gp -> 350/hr
+        assertEquals(50L, d.combatGpPerHour);
+        assertEquals(300L, d.gatherGpPerHour);
+        assertEquals(350L, d.gpPerHour);
+    }
+
+    @Test
+    public void tripDetailIncludesGatheredAndCombinedNetProfit() throws Exception {
+        Path root = Files.createTempDirectory("grt");
+        SessionStore store = new SessionStore(root);
+        ItemKey logs = ItemKey.item(1511);
+        Map<ItemKey, Long> price = new HashMap<>();
+        price.put(logs, 10L);
+        Map<ItemKey, Integer> gathered = new HashMap<>();
+        gathered.put(logs, 25);
+        Trip t = new Trip("t1", 0, 3_600_000L, false, new HashMap<>(), new HashMap<>(),
+                new HashMap<>(), new HashMap<>(), new HashMap<>(), gathered, new HashMap<>());
+        save(store, "acct", "s", "Woodcutting", "", 0, 3_600_000L,
+                Arrays.asList(SessionMapper.toStored(t, price)));
+
+        SessionHistory history = new SessionHistory(store, "acct", names);
+        SessionHistory.TripDetail d = history.tripDetail("s", "t1");
+
+        assertEquals(1, d.gathered.size());
+        assertEquals("Item 1511", d.gathered.get(0).label);
+        assertEquals(25, d.gathered.get(0).quantity);
+        assertEquals(250L, d.gathered.get(0).gpValue);
+        assertEquals(250L, d.gatheredValue);
+        assertEquals(250L, d.netProfit);    // 0 picked + 250 gathered - 0 supplies
+    }
+
+    @Test
     public void sessionSummaryExposesAvgKillsPerTrip() throws Exception {
         Path root = Files.createTempDirectory("grt");
         SessionStore store = new SessionStore(root);

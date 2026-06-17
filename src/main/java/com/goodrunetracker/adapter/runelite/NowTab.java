@@ -44,9 +44,11 @@ final class NowTab extends JPanel {
     private final JLabel picked = Styles.valueLabel(Styles.GP);
     private final JLabel ground = Styles.valueLabel(Styles.MISSED);
     private final JLabel supplies = Styles.valueLabel(Styles.NEG);
+    private final JLabel gathered = Styles.valueLabel(Styles.GP);
 
     private final JLabel sessTrips = Styles.valueLabel(Styles.TEXT);
     private final JLabel sessNet = Styles.valueLabel(Styles.GP);
+    private final JLabel sessGathered = Styles.valueLabel(Styles.GP);
     private final JLabel sessXp = Styles.valueLabel(Styles.XP);
     private final JLabel sessGpHr = Styles.valueLabel(Styles.GP);
 
@@ -194,6 +196,8 @@ final class NowTab extends JPanel {
         grid.add(ground);
         grid.add(Styles.keyLabel("Supplies"));
         grid.add(supplies);
+        grid.add(Styles.keyLabel("Gathered"));
+        grid.add(gathered);
         Styles.capHeight(grid);
         card.add(grid);
 
@@ -246,6 +250,8 @@ final class NowTab extends JPanel {
         grid.add(sessTrips);
         grid.add(Styles.keyLabel("Net profit"));
         grid.add(sessNet);
+        grid.add(Styles.keyLabel("Gathered"));
+        grid.add(sessGathered);
         grid.add(Styles.keyLabel("Total XP"));
         grid.add(sessXp);
         grid.add(Styles.keyLabel("GP/hr"));
@@ -345,6 +351,7 @@ final class NowTab extends JPanel {
             picked.setText(GpFormat.format(s.pickedGp));
             ground.setText(GpFormat.format(s.groundGp));
             supplies.setText(GpFormat.format(s.suppliesGp));
+            gathered.setText(GpFormat.format(s.gatheredGp));
             elapsed.setText(formatElapsed(s.durationMillis));
             renderXp(s.xpBySkill);
             renderKills(s.killsByNpc);
@@ -355,6 +362,7 @@ final class NowTab extends JPanel {
             picked.setText("-");
             ground.setText("-");
             supplies.setText("-");
+            gathered.setText("-");
             elapsed.setText("");
             renderXp(null);
             renderKills(null);
@@ -364,12 +372,14 @@ final class NowTab extends JPanel {
             SessionSnapshot s = sess.get();
             sessTrips.setText(Integer.toString(s.tripCount));
             setSigned(sessNet, s.netProfit);
+            sessGathered.setText(GpFormat.format(s.gatheredGp));
             sessXp.setText(GpFormat.format(s.totalXp));
             setSigned(sessGpHr, s.gpPerHour);
         } else {
             sessTrips.setText("-");
             sessNet.setText("-");
             sessNet.setForeground(Styles.GP);
+            sessGathered.setText("-");
             sessXp.setText("-");
             sessGpHr.setText("-");
             sessGpHr.setForeground(Styles.GP);

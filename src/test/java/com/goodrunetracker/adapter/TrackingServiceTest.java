@@ -445,6 +445,47 @@ public class TrackingServiceTest {
     }
 
     @Test
+    public void gatheredResourcesAppearInSnapshotAndPersist() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        Path root = Files.createTempDirectory("grt");
+        SessionStore store = new SessionStore(root);
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+
+        service.startSession();                 // baseline empty
+        carried.carried.put(1511, 27);          // chopped 27 logs, no kill
+        service.markCarriedDirty();
+        clock.now = 30_000;
+        service.onTick();
+
+        assertEquals(27, service.currentSnapshot().get().gatheredGp); // oneGp valuer
+        service.endSession();
+
+        StoredSession saved = store.load("acct-A").get(0);
+        Trip trip = SessionMapper.toTrip(saved.trips.get(0));
+        assertEquals(Integer.valueOf(27), trip.gathered().get(ItemKey.item(1511)));
+    }
+
+    @Test
+    public void gatheredAddsToNetProfit() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"));
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+
+        service.startSession();
+        carried.carried.put(1511, 100);         // gathered 100 logs (gross, no supplies)
+        service.markCarriedDirty();
+        clock.now = 3_600_000L;                 // 1 hour
+        service.onTick();
+        service.onBankOpened();                 // ends the trip, persisting gathered=100
+
+        SessionSnapshot snap = service.currentSessionSnapshot().get();
+        assertEquals(100L, snap.netProfit);     // 0 picked + 100 gathered - 0 supplies
+        assertEquals(100L, snap.gatheredGp);
+    }
+
+    @Test
     public void renameAndRecategorizeActiveSessionPersistAfterTripEnds() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();

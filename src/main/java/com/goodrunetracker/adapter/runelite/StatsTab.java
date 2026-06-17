@@ -150,6 +150,16 @@ final class StatsTab extends JPanel {
         detailBody.add(Box.createVerticalStrut(4));
         detailBody.add(tiles(d.gpPerHour, d.xpPerHour));
 
+        JPanel split = new JPanel(new GridLayout(0, 2, 0, 3));
+        split.setBackground(Styles.PANEL);
+        split.setAlignmentX(Component.LEFT_ALIGNMENT);
+        split.add(Styles.keyLabel("Combat GP/hr"));
+        split.add(signedValue(d.combatGpPerHour));
+        split.add(Styles.keyLabel("Gather GP/hr"));
+        split.add(signedValue(d.gatherGpPerHour));
+        Styles.capHeight(split);
+        detailBody.add(split);
+
         detailBody.add(Styles.sectionHeader("Per-trip averages"));
         JPanel avgCard = Styles.card();
         JPanel avg = grid();
@@ -172,6 +182,7 @@ final class StatsTab extends JPanel {
         detailBody.add(avgCard);
 
         addItemTable("Avg picked up / trip", d.pickedAverages, d.avgPickedGpPerTrip, Styles.GP);
+        addItemTable("Avg gathered / trip", d.gatheredAverages, d.avgGatheredGpPerTrip, Styles.GP);
         addItemTable("Avg supplies / trip", d.supplies, d.avgTotalSuppliesGpPerTrip, Styles.NEG);
         addItemTable("Avg left on ground / trip", d.missedAverages, d.avgMissedPerTrip, Styles.MISSED);
         addItemTable("Gross avg drops / trip", d.droppedAverages, d.avgDroppedGpPerTrip, Styles.TEXT);

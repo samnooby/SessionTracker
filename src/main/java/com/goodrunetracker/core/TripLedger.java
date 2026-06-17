@@ -26,6 +26,7 @@ public final class TripLedger {
     // Brought items that were dropped and charged as supplies, but are still on the ground
     // and recoverable: picking one back up reverses that supply charge.
     private final Map<ItemKey, Integer> droppedBrought = new HashMap<>();
+    private final Map<ItemKey, Integer> gathered = new HashMap<>();
     private final Map<String, Long> xp = new HashMap<>();
 
     private Map<ItemKey, Integer> carried = null;
@@ -86,8 +87,12 @@ public final class TripLedger {
         if (fromGround > 0) {
             pickedUp.merge(key, fromGround, Integer::sum);
             decrement(groundPool, key, fromGround);
+            remaining -= fromGround;
         }
-        // Any further gain is an untracked generic gain.
+        // Any further gain is a non-loot inventory gain (e.g. a gathered resource).
+        if (remaining > 0) {
+            gathered.merge(key, remaining, Integer::sum);
+        }
     }
 
     private void reverseDrop(ItemKey key, int lost) {
@@ -135,6 +140,6 @@ public final class TripLedger {
             }
         }
         return new Trip(id, startMillis, endMillis, died,
-                kills, dropped, pickedUp, missed, suppliesUsed, xp);
+                kills, dropped, pickedUp, missed, suppliesUsed, gathered, xp);
     }
 }

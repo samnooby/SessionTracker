@@ -20,9 +20,12 @@ public class SessionMapperTest {
         missed.put(ItemKey.item(560), 40);
         Map<ItemKey, Integer> supplies = new HashMap<>();
         supplies.put(ItemKey.potion("Prayer potion"), 3);
+        Map<ItemKey, Integer> gathered = new HashMap<>();
+        gathered.put(ItemKey.item(1511), 27);
         Map<String, Long> xp = new HashMap<>();
         xp.put("RANGED", 5000L);
-        return new Trip("t1", 0, 60_000, false, kills, dropped, pickedUp, missed, supplies, xp);
+        return new Trip("t1", 0, 60_000, false, kills, dropped, pickedUp, missed, supplies,
+                gathered, xp);
     }
 
     @Test
@@ -90,5 +93,24 @@ public class SessionMapperTest {
         java.util.function.Function<com.goodrunetracker.core.Trip, com.goodrunetracker.core.item.ItemValuer> fn =
                 SessionMapper.valuerFor(stored);
         assertEquals(70L, session.totalNetProfit(fn));
+    }
+
+    @Test
+    public void encodesAndRoundTripsGathered() {
+        Map<ItemKey, Long> prices = new HashMap<>();
+        prices.put(ItemKey.item(1511), 50L);
+        StoredTrip stored = SessionMapper.toStored(sampleTrip(), prices);
+        assertEquals(Integer.valueOf(27), stored.gathered.get("item:1511"));
+
+        Trip restored = SessionMapper.toTrip(stored);
+        assertEquals(Integer.valueOf(27), restored.gathered().get(ItemKey.item(1511)));
+    }
+
+    @Test
+    public void toTripTreatsMissingGatheredAsEmpty() {
+        StoredTrip stored = SessionMapper.toStored(sampleTrip(), new HashMap<>());
+        stored.gathered = null; // simulate a session saved before the feature existed
+        Trip restored = SessionMapper.toTrip(stored);
+        assertTrue(restored.gathered().isEmpty());
     }
 }

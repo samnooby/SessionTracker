@@ -235,33 +235,37 @@ public final class TrackingService {
         long picked = trip.pickedUpValue(valuer);
         long ground = trip.missedValue(valuer);
         long supplies = trip.suppliesValue(valuer);
+        long gathered = trip.gatheredValue(valuer);
         long duration = now - tripStartMillis;
-        long net = picked - supplies;
+        long net = picked + gathered - supplies;
         long gpPerHour = duration <= 0 ? 0 : net * MILLIS_PER_HOUR / duration;
         int tripNumber = activeSession.trips.size() + 1;
         return new TripSnapshot(tripNumber, duration, trip.totalKills(),
-                picked, ground, supplies, trip.totalXp(), gpPerHour,
+                picked, ground, supplies, gathered, trip.totalXp(), gpPerHour,
                 SkillXp.sortedFrom(trip.xpGained()), NpcKills.sortedByCountDesc(trip.kills()));
     }
 
     private SessionSnapshot computeSessionSnapshot() {
         long net = 0;
         long xp = 0;
+        long gathered = 0;
         for (StoredTrip st : activeSession.trips) {
             Trip t = SessionMapper.toTrip(st);
             FrozenItemValuer frozen = new FrozenItemValuer(SessionMapper.unitPrices(st));
             net += t.netProfit(frozen);
             xp += t.totalXp();
+            gathered += t.gatheredValue(frozen);
         }
         int tripCount = activeSession.trips.size();
         if (cachedSnapshot != null) {
-            net += cachedSnapshot.pickedGp - cachedSnapshot.suppliesGp;
+            net += cachedSnapshot.pickedGp + cachedSnapshot.gatheredGp - cachedSnapshot.suppliesGp;
             xp += cachedSnapshot.totalXp;
+            gathered += cachedSnapshot.gatheredGp;
             tripCount += 1;
         }
         long wallClock = clock.nowMillis() - activeSession.startMillis;
         long gpPerHour = wallClock <= 0 ? 0 : net * MILLIS_PER_HOUR / wallClock;
-        return new SessionSnapshot(tripCount, net, xp, gpPerHour);
+        return new SessionSnapshot(tripCount, net, xp, gpPerHour, gathered);
     }
 
     public void endSession() {
@@ -296,7 +300,8 @@ public final class TrackingService {
         }
         Trip trip = ledger.build(tripId, tripStartMillis, clock.nowMillis(), tripDied);
         ledger = null;
-        if (trip.totalKills() == 0 && trip.suppliesUsed().isEmpty() && trip.totalXp() == 0) {
+        if (trip.totalKills() == 0 && trip.suppliesUsed().isEmpty() && trip.totalXp() == 0
+                && trip.gathered().isEmpty()) {
             return;
         }
         Map<ItemKey, Long> unitPrices = captureUnitPrices(trip);
@@ -319,6 +324,7 @@ public final class TrackingService {
         keys.addAll(trip.pickedUp().keySet());
         keys.addAll(trip.missed().keySet());
         keys.addAll(trip.suppliesUsed().keySet());
+        keys.addAll(trip.gathered().keySet());
         return keys;
     }
 
