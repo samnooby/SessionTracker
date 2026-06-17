@@ -41,7 +41,7 @@ public class SessionStoreTest {
     @Test
     public void savesAndLoadsASessionPerAccount() throws Exception {
         Path root = Files.createTempDirectory("grt-store");
-        SessionStore store = new SessionStore(root);
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
 
         store.save(sampleSession("s1", "acct-A"));
 
@@ -57,7 +57,7 @@ public class SessionStoreTest {
     @Test
     public void loadIsolatesByAccount() throws Exception {
         Path root = Files.createTempDirectory("grt-store");
-        SessionStore store = new SessionStore(root);
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         store.save(sampleSession("s1", "acct-A"));
         store.save(sampleSession("s2", "acct-B"));
 
@@ -68,14 +68,14 @@ public class SessionStoreTest {
     @Test
     public void loadOfUnknownAccountIsEmpty() throws Exception {
         Path root = Files.createTempDirectory("grt-store");
-        SessionStore store = new SessionStore(root);
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         assertTrue(store.load("nobody").isEmpty());
     }
 
     @Test
     public void loadSkipsCorruptFilesAndReturnsTheValidOnes() throws Exception {
         java.nio.file.Path root = java.nio.file.Files.createTempDirectory("grt-store");
-        SessionStore store = new SessionStore(root);
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         store.save(sampleSession("good", "acct-A"));
 
         // Write a corrupt JSON file alongside the good one in the same account dir.
@@ -91,7 +91,7 @@ public class SessionStoreTest {
     @Test
     public void loadIgnoresNonJsonFiles() throws Exception {
         java.nio.file.Path root = java.nio.file.Files.createTempDirectory("grt-store");
-        SessionStore store = new SessionStore(root);
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         store.save(sampleSession("good", "acct-A"));
         java.nio.file.Path dir = root.resolve("acct-A");
         java.nio.file.Files.write(dir.resolve("notes.txt"),

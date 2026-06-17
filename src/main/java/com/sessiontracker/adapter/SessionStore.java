@@ -1,7 +1,6 @@
 package com.sessiontracker.adapter;
 
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -17,10 +16,11 @@ import java.util.stream.Stream;
 public final class SessionStore {
 
     private final Path root;
-    private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    private final Gson gson;
 
-    public SessionStore(Path root) {
+    public SessionStore(Path root, Gson gson) {
         this.root = root;
+        this.gson = gson;
     }
 
     public void save(StoredSession session) {

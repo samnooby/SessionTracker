@@ -51,7 +51,7 @@ public class SessionHistoryTest {
     @Test
     public void sessionsAreListedNewestFirstWithSummaryValues() throws Exception {
         Path root = Files.createTempDirectory("grt");
-        SessionStore store = new SessionStore(root);
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         ItemKey coins = ItemKey.item(560);
         Map<ItemKey, Long> price = new HashMap<>();
         price.put(coins, 1L);
@@ -77,7 +77,7 @@ public class SessionHistoryTest {
     @Test
     public void tripsForReturnsPerTripSummaries() throws Exception {
         Path root = Files.createTempDirectory("grt");
-        SessionStore store = new SessionStore(root);
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         ItemKey coins = ItemKey.item(560);
         Map<ItemKey, Long> price = new HashMap<>();
         price.put(coins, 1L);
@@ -97,7 +97,7 @@ public class SessionHistoryTest {
     @Test
     public void tripDetailGroupsPickedMissedAndSupplies() throws Exception {
         Path root = Files.createTempDirectory("grt");
-        SessionStore store = new SessionStore(root);
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         ItemKey coins = ItemKey.item(560);
         ItemKey shark = ItemKey.item(385);
         Map<ItemKey, Long> price = new HashMap<>();
@@ -123,7 +123,7 @@ public class SessionHistoryTest {
     @Test
     public void categoryStatsAreSortedByGpPerHourDescending() throws Exception {
         Path root = Files.createTempDirectory("grt");
-        SessionStore store = new SessionStore(root);
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         ItemKey coins = ItemKey.item(560);
         Map<ItemKey, Long> price = new HashMap<>();
         price.put(coins, 1L);
@@ -145,7 +145,7 @@ public class SessionHistoryTest {
     @Test
     public void recategorizeWritesThroughAndRefilesIntoStats() throws Exception {
         Path root = Files.createTempDirectory("grt");
-        SessionStore store = new SessionStore(root);
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         ItemKey coins = ItemKey.item(560);
         Map<ItemKey, Long> price = new HashMap<>();
         price.put(coins, 1L);
@@ -168,7 +168,7 @@ public class SessionHistoryTest {
     @Test
     public void tripDetailListsXpPerSkillAlphabetically() throws Exception {
         Path root = Files.createTempDirectory("grt");
-        SessionStore store = new SessionStore(root);
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         Map<String, Long> xp = new HashMap<>();
         xp.put("Ranged", 300L);
         xp.put("Attack", 200L);
@@ -190,7 +190,7 @@ public class SessionHistoryTest {
     @Test
     public void tripDetailListsKillsByNpcMostKilledFirst() throws Exception {
         Path root = Files.createTempDirectory("grt");
-        SessionStore store = new SessionStore(root);
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         Map<String, Integer> kills = new HashMap<>();
         kills.put("Goblin", 20);
         kills.put("Bird", 10);
@@ -212,7 +212,7 @@ public class SessionHistoryTest {
     @Test
     public void sessionSummaryExposesPerSessionAverages() throws Exception {
         Path root = Files.createTempDirectory("grt");
-        SessionStore store = new SessionStore(root);
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         ItemKey coins = ItemKey.item(560);
         Map<ItemKey, Long> price = new HashMap<>();
         price.put(coins, 1L);
@@ -239,7 +239,7 @@ public class SessionHistoryTest {
     @Test
     public void categoryDetailListsPerSkillXpAverages() throws Exception {
         Path root = Files.createTempDirectory("grt");
-        SessionStore store = new SessionStore(root);
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         Map<String, Long> xpA = new HashMap<>();
         xpA.put("Attack", 200L);
         xpA.put("Ranged", 100L);
@@ -268,7 +268,7 @@ public class SessionHistoryTest {
     @Test
     public void categoryDetailSeparatesUsedLootFromKeptPickedAndGathered() throws Exception {
         Path root = Files.createTempDirectory("grt");
-        SessionStore store = new SessionStore(root);
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         ItemKey shark = ItemKey.item(385);
         ItemKey logs = ItemKey.item(1511);
         Map<ItemKey, Long> price = new HashMap<>();
@@ -306,7 +306,7 @@ public class SessionHistoryTest {
     @Test
     public void categoryDetailAveragesSuppliesPerTripWithTotal() throws Exception {
         Path root = Files.createTempDirectory("grt");
-        SessionStore store = new SessionStore(root);
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         ItemKey coins = ItemKey.item(560);
         ItemKey brew = ItemKey.item(6685);
         Map<ItemKey, Long> price = new HashMap<>();
@@ -332,7 +332,7 @@ public class SessionHistoryTest {
     @Test
     public void categoryDetailAveragesPickedDroppedAndLeftOnGroundPerItem() throws Exception {
         Path root = Files.createTempDirectory("grt");
-        SessionStore store = new SessionStore(root);
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         ItemKey coins = ItemKey.item(560);
         ItemKey scale = ItemKey.item(12934);
         Map<ItemKey, Long> price = new HashMap<>();
@@ -394,7 +394,7 @@ public class SessionHistoryTest {
     @Test
     public void categoryDetailListsPerNpcKillAveragesMostKilledFirst() throws Exception {
         Path root = Files.createTempDirectory("grt");
-        SessionStore store = new SessionStore(root);
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         Map<String, Integer> kA = new HashMap<>();
         kA.put("Goblin", 20);
         kA.put("Cow", 10);
@@ -423,7 +423,7 @@ public class SessionHistoryTest {
     @Test
     public void categoryDetailAveragesGatheredPerItemAndSplitsGpPerHour() throws Exception {
         Path root = Files.createTempDirectory("grt");
-        SessionStore store = new SessionStore(root);
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         ItemKey coins = ItemKey.item(560);
         ItemKey logs = ItemKey.item(1511);
         Map<ItemKey, Long> price = new HashMap<>();
@@ -464,7 +464,7 @@ public class SessionHistoryTest {
     @Test
     public void tripDetailIncludesGatheredAndCombinedNetProfit() throws Exception {
         Path root = Files.createTempDirectory("grt");
-        SessionStore store = new SessionStore(root);
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         ItemKey logs = ItemKey.item(1511);
         Map<ItemKey, Long> price = new HashMap<>();
         price.put(logs, 10L);
@@ -489,7 +489,7 @@ public class SessionHistoryTest {
     @Test
     public void sessionSummaryExposesAvgKillsPerTrip() throws Exception {
         Path root = Files.createTempDirectory("grt");
-        SessionStore store = new SessionStore(root);
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         Map<String, Integer> killsA = new HashMap<>();
         killsA.put("Goblin", 3);
         Map<String, Integer> killsB = new HashMap<>();

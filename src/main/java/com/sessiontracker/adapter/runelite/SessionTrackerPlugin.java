@@ -7,6 +7,7 @@ import com.sessiontracker.adapter.PotionRegistry;
 import com.sessiontracker.adapter.SessionHistory;
 import com.sessiontracker.adapter.SessionStore;
 import com.sessiontracker.adapter.TrackingService;
+import com.google.gson.Gson;
 import com.google.inject.Provides;
 import java.awt.Image;
 import java.awt.image.BufferedImage;
@@ -52,6 +53,7 @@ import net.runelite.client.util.ImageUtil;
 public class SessionTrackerPlugin extends Plugin {
 
     @Inject private Client client;
+    @Inject private Gson gson;
     @Inject private ItemManager itemManager;
     @Inject private ClientToolbar clientToolbar;
     @Inject private ClientThread clientThread;
@@ -116,7 +118,7 @@ public class SessionTrackerPlugin extends Plugin {
     private void buildService() {
         PotionRegistry potions = new PotionRegistry();
         LiveItemValuer valuer = new LiveItemValuer(new ItemManagerPriceSource(itemManager), potions);
-        SessionStore store = new SessionStore(RuneLite.RUNELITE_DIR.toPath().resolve("sessiontracker"));
+        SessionStore store = new SessionStore(RuneLite.RUNELITE_DIR.toPath().resolve("sessiontracker"), gson.newBuilder().setPrettyPrinting().create());
         IntFunction<String> names = id -> itemManager.getItemComposition(id).getName();
         service = new TrackingService(
                 new SystemClock(),
