@@ -46,9 +46,14 @@ public final class SessionHistory {
             long xpTotal = session.totalXp();
             long avgNet = tripCount == 0 ? 0 : net / tripCount;
             long avgXp = tripCount == 0 ? 0 : xpTotal / tripCount;
+            long totalKills = 0;
+            for (Trip t : session.trips()) {
+                totalKills += t.totalKills();
+            }
+            double avgKills = tripCount == 0 ? 0 : (double) totalKills / tripCount;
             out.add(new SessionSummary(s.id, s.name, s.category, tripCount,
                     net, session.gpPerHour(fn), xpTotal, session.wallClockMillis(), s.startMillis,
-                    session.xpPerHour(), avgNet, avgXp));
+                    session.xpPerHour(), avgNet, avgXp, avgKills));
         }
         out.sort(Comparator.comparingLong((SessionSummary s) -> s.startMillis).reversed());
         return out;
@@ -143,9 +148,27 @@ public final class SessionHistory {
             xpAverages.add(new SkillXpAverage(e.getKey(), avgTrip, perHour));
         }
 
+        Map<String, Integer> npcTotalKills = new HashMap<>();
+        for (Session s : sessions) {
+            for (Trip t : s.trips()) {
+                for (Map.Entry<String, Integer> e : t.kills().entrySet()) {
+                    npcTotalKills.merge(e.getKey(), e.getValue(), Integer::sum);
+                }
+            }
+        }
+        List<NpcKillAverage> killAverages = new ArrayList<>();
+        for (Map.Entry<String, Integer> e : npcTotalKills.entrySet()) {
+            double avgTrip = tripCount == 0 ? 0 : (double) e.getValue() / tripCount;
+            double perHour = totalWallClock <= 0 ? 0
+                    : (double) e.getValue() * MILLIS_PER_HOUR / totalWallClock;
+            killAverages.add(new NpcKillAverage(e.getKey(), avgTrip, perHour));
+        }
+        killAverages.sort(Comparator.comparingDouble((NpcKillAverage k) -> k.avgPerTrip).reversed()
+                .thenComparing(k -> k.npc));
+
         return new CategoryDetail(cs.gpPerHour(), cs.xpPerHour(), cs.avgNetProfitPerTrip(),
                 cs.avgMissedPerTrip(), cs.avgTripDurationMillis(), cs.avgKillsPerTrip(),
-                supplies, avgTotalSupplies, xpAverages);
+                supplies, avgTotalSupplies, xpAverages, killAverages);
     }
 
     public void rename(String sessionId, String newName) {
@@ -224,11 +247,12 @@ public final class SessionHistory {
         public final long xpPerHour;
         public final long avgNetProfitPerTrip;
         public final long avgXpPerTrip;
+        public final double avgKillsPerTrip;
 
         public SessionSummary(String sessionId, String name, String category, int tripCount,
                               long netProfit, long gpPerHour, long xpTotal, long wallClockMillis,
                               long startMillis, long xpPerHour, long avgNetProfitPerTrip,
-                              long avgXpPerTrip) {
+                              long avgXpPerTrip, double avgKillsPerTrip) {
             this.sessionId = sessionId;
             this.name = name;
             this.category = category;
@@ -241,6 +265,7 @@ public final class SessionHistory {
             this.xpPerHour = xpPerHour;
             this.avgNetProfitPerTrip = avgNetProfitPerTrip;
             this.avgXpPerTrip = avgXpPerTrip;
+            this.avgKillsPerTrip = avgKillsPerTrip;
         }
     }
 
@@ -340,6 +365,18 @@ public final class SessionHistory {
         }
     }
 
+    public static final class NpcKillAverage {
+        public final String npc;
+        public final double avgPerTrip;
+        public final double perHour;
+
+        public NpcKillAverage(String npc, double avgPerTrip, double perHour) {
+            this.npc = npc;
+            this.avgPerTrip = avgPerTrip;
+            this.perHour = perHour;
+        }
+    }
+
     public static final class CategoryDetail {
         public final long gpPerHour;
         public final long xpPerHour;
@@ -350,11 +387,12 @@ public final class SessionHistory {
         public final List<SupplyAverage> supplies;
         public final long avgTotalSuppliesGpPerTrip;
         public final List<SkillXpAverage> xpAverages;
+        public final List<NpcKillAverage> killAverages;
 
         public CategoryDetail(long gpPerHour, long xpPerHour, long avgNetProfitPerTrip,
                               long avgMissedPerTrip, long avgTripDurationMillis, double avgKillsPerTrip,
                               List<SupplyAverage> supplies, long avgTotalSuppliesGpPerTrip,
-                              List<SkillXpAverage> xpAverages) {
+                              List<SkillXpAverage> xpAverages, List<NpcKillAverage> killAverages) {
             this.gpPerHour = gpPerHour;
             this.xpPerHour = xpPerHour;
             this.avgNetProfitPerTrip = avgNetProfitPerTrip;
@@ -364,6 +402,7 @@ public final class SessionHistory {
             this.supplies = supplies;
             this.avgTotalSuppliesGpPerTrip = avgTotalSuppliesGpPerTrip;
             this.xpAverages = xpAverages;
+            this.killAverages = killAverages;
         }
     }
 }
