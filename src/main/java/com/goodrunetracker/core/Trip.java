@@ -108,6 +108,39 @@ public final class Trip {
         return Collections.unmodifiableMap(consumedLoot);
     }
 
+    /**
+     * Picked-up loot still in hand at trip end: gross pickedUp minus the portion later
+     * consumed. Consumed acquisitions are attributed to loot before gathered, matching
+     * {@link #gatheredKept()}. The gross {@link #pickedUp()} is left intact for the
+     * left-on-ground calculation; this is the "what you kept" view for display.
+     */
+    public Map<ItemKey, Integer> pickedUpKept() {
+        Map<ItemKey, Integer> out = new HashMap<>();
+        for (Map.Entry<ItemKey, Integer> e : pickedUp.entrySet()) {
+            int fromPicked = Math.min(consumedLoot.getOrDefault(e.getKey(), 0), e.getValue());
+            int kept = e.getValue() - fromPicked;
+            if (kept > 0) {
+                out.put(e.getKey(), kept);
+            }
+        }
+        return out;
+    }
+
+    /** Gathered resources still in hand at trip end: gross gathered minus the portion consumed. */
+    public Map<ItemKey, Integer> gatheredKept() {
+        Map<ItemKey, Integer> out = new HashMap<>();
+        for (Map.Entry<ItemKey, Integer> e : gathered.entrySet()) {
+            int consumed = consumedLoot.getOrDefault(e.getKey(), 0);
+            int fromPicked = Math.min(consumed, pickedUp.getOrDefault(e.getKey(), 0));
+            int fromGathered = Math.min(e.getValue(), consumed - fromPicked);
+            int kept = e.getValue() - fromGathered;
+            if (kept > 0) {
+                out.put(e.getKey(), kept);
+            }
+        }
+        return out;
+    }
+
     public Map<String, Long> xpGained() {
         return Collections.unmodifiableMap(xpGained);
     }
@@ -134,6 +167,14 @@ public final class Trip {
 
     public long gatheredValue(ItemValuer valuer) {
         return value(gathered, valuer);
+    }
+
+    public long pickedUpKeptValue(ItemValuer valuer) {
+        return value(pickedUpKept(), valuer);
+    }
+
+    public long gatheredKeptValue(ItemValuer valuer) {
+        return value(gatheredKept(), valuer);
     }
 
     public long consumedLootValue(ItemValuer valuer) {
