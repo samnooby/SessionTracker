@@ -583,6 +583,42 @@ public class SessionHistoryTest {
     }
 
     @Test
+    public void tripDetailCarriesDuration() throws Exception {
+        java.nio.file.Path root = java.nio.file.Files.createTempDirectory("grt");
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
+        ItemKey coins = ItemKey.item(560);
+        Map<ItemKey, Long> price = new HashMap<>();
+        price.put(coins, 1L);
+        save(store, "acct", "s", "Vorkath", "", 0, 1_800_000L,
+                Arrays.asList(trip("t1", 0, 1_800_000L, 5, qty(coins, 80), new HashMap<>(),
+                        new HashMap<>(), price)));
+
+        SessionHistory history = new SessionHistory(store, "acct", names);
+        SessionHistory.TripDetail d = history.tripDetail("s", "t1");
+        assertEquals(1_800_000L, d.durationMillis);
+    }
+
+    @Test
+    public void categoryDetailCarriesAvgSessionDuration() throws Exception {
+        java.nio.file.Path root = java.nio.file.Files.createTempDirectory("grt");
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
+        ItemKey coins = ItemKey.item(560);
+        Map<ItemKey, Long> price = new HashMap<>();
+        price.put(coins, 1L);
+        save(store, "acct", "s1", "Vorkath", "", 0, 3_600_000L,
+                Arrays.asList(trip("t1", 0, 3_600_000L, 5, qty(coins, 80), new HashMap<>(),
+                        new HashMap<>(), price)));
+        save(store, "acct", "s2", "Vorkath", "", 10_000_000L, 11_800_000L,
+                Arrays.asList(trip("t2", 10_000_000L, 11_800_000L, 5, qty(coins, 80),
+                        new HashMap<>(), new HashMap<>(), price)));
+
+        SessionHistory history = new SessionHistory(store, "acct", names);
+        SessionHistory.CategoryDetail d = history.categoryDetail("Vorkath");
+        // (3_600_000 + 1_800_000) / 2 sessions
+        assertEquals(2_700_000L, d.avgSessionDurationMillis);
+    }
+
+    @Test
     public void deletingLastTripDeletesTheWholeSession() throws Exception {
         Path root = Files.createTempDirectory("grt");
         SessionStore store = new SessionStore(root, new com.google.gson.Gson());
