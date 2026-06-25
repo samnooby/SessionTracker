@@ -91,6 +91,7 @@ final class StatsTab extends JPanel {
         header.setBackground(Styles.CARD);
         header.setAlignmentX(Component.LEFT_ALIGNMENT);
         JLabel name = new JLabel(c.category);
+        name.setToolTipText(c.category);
         name.setFont(FontManager.getRunescapeBoldFont());
         name.setForeground(Styles.TEXT);
         header.add(name, BorderLayout.CENTER);
@@ -143,6 +144,7 @@ final class StatsTab extends JPanel {
         detailBody.add(Box.createVerticalStrut(6));
 
         JLabel name = new JLabel(category);
+        name.setToolTipText(category);
         name.setFont(FontManager.getRunescapeBoldFont());
         name.setForeground(Styles.TEXT);
         name.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -209,7 +211,9 @@ final class StatsTab extends JPanel {
             long totalAvgTrip = 0;
             for (SessionHistory.SkillXpAverage a : d.xpAverages) {
                 totalAvgTrip += a.avgXpPerTrip;
-                xpGrid.add(Styles.keyLabel(a.skill));
+                JLabel skill = Styles.keyLabel(a.skill);
+                skill.setToolTipText(a.skill);
+                xpGrid.add(skill);
                 xpGrid.add(rightValue(GpFormat.format(a.avgXpPerTrip), Styles.XP));
                 xpGrid.add(rightValue(GpFormat.format(a.xpPerHour), Styles.XP));
             }
@@ -239,7 +243,9 @@ final class StatsTab extends JPanel {
             for (SessionHistory.NpcKillAverage k : d.killAverages) {
                 totalTrip += k.avgPerTrip;
                 totalHr += k.perHour;
-                killGrid.add(Styles.keyLabel(k.npc));
+                JLabel npc = Styles.keyLabel(k.npc);
+                npc.setToolTipText(k.npc);
+                killGrid.add(npc);
                 killGrid.add(rightValue(String.format(Locale.US, "%.1f", k.avgPerTrip), Styles.TEXT));
                 killGrid.add(rightValue(String.format(Locale.US, "%.1f", k.perHour), Styles.TEXT));
             }
@@ -271,7 +277,9 @@ final class StatsTab extends JPanel {
         } else {
             JPanel g = grid();
             for (SessionHistory.ItemAverage a : items) {
-                g.add(Styles.keyLabel(a.label + "  " + String.format(Locale.US, "%.1f", a.avgQtyPerTrip)));
+                JLabel k = Styles.keyLabel(a.label + "  " + String.format(Locale.US, "%.1f", a.avgQtyPerTrip));
+                k.setToolTipText(Styles.itemTooltip(a.label, a.avgQtyPerTrip, a.isPotion, a.dosesPerPotion));
+                g.add(k);
                 JLabel v = Styles.valueLabel(valueColor);
                 v.setText(GpFormat.format(a.avgGpPerTrip));
                 g.add(v);
