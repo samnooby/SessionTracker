@@ -40,6 +40,15 @@ public final class SessionStore {
         }
     }
 
+    public void delete(String accountHash, String sessionId) {
+        Path file = root.resolve(accountHash).resolve(sessionId + ".json");
+        try {
+            Files.deleteIfExists(file);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to delete session " + sessionId, e);
+        }
+    }
+
     public List<StoredSession> load(String accountHash) {
         Path dir = root.resolve(accountHash);
         if (!Files.isDirectory(dir)) {

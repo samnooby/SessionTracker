@@ -99,4 +99,29 @@ public class SessionStoreTest {
 
         assertEquals(1, store.load("acct-A").size());
     }
+
+    @Test
+    public void deleteRemovesOnlyTheNamedSession() throws Exception {
+        Path root = Files.createTempDirectory("grt-store");
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
+        store.save(sampleSession("s1", "acct-A"));
+        store.save(sampleSession("s2", "acct-A"));
+
+        store.delete("acct-A", "s1");
+
+        List<StoredSession> loaded = store.load("acct-A");
+        assertEquals(1, loaded.size());
+        assertEquals("s2", loaded.get(0).id);
+    }
+
+    @Test
+    public void deleteOfMissingSessionIsANoOp() throws Exception {
+        Path root = Files.createTempDirectory("grt-store");
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
+        store.save(sampleSession("s1", "acct-A"));
+
+        store.delete("acct-A", "does-not-exist");
+
+        assertEquals(1, store.load("acct-A").size());
+    }
 }

@@ -188,6 +188,23 @@ public final class SessionHistory {
         }
     }
 
+    public void deleteSession(String sessionId) {
+        store.delete(accountHash, sessionId);
+    }
+
+    public void deleteTrip(String sessionId, String tripId) {
+        StoredSession s = find(sessionId);
+        if (s == null) {
+            return;
+        }
+        s.trips.removeIf(t -> t.id.equals(tripId));
+        if (s.trips.isEmpty()) {
+            store.delete(accountHash, sessionId);
+        } else {
+            store.save(s);
+        }
+    }
+
     public List<String> categories() {
         java.util.TreeSet<String> distinct = new java.util.TreeSet<>();
         for (StoredSession s : store.load(accountHash)) {
