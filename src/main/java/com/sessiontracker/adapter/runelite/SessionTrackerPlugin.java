@@ -170,8 +170,7 @@ public class SessionTrackerPlugin extends Plugin {
             if (service == null) {
                 buildService();
             }
-        } else if (event.getGameState() == GameState.LOGIN_SCREEN
-                || event.getGameState() == GameState.HOPPING) {
+        } else if (event.getGameState() == GameState.LOGIN_SCREEN) {
             if (service != null) {
                 service.endSession();
                 service = null;
