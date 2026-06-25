@@ -71,7 +71,8 @@ public class SessionTrackerPlugin extends Plugin {
 
     @Override
     protected void startUp() {
-        panel = new SessionTrackerPanel(clientThread, buildSkillIcons());
+        ItemIconProvider itemIcons = new ItemManagerIconProvider(itemManager, clientThread, config::showItemIcons);
+        panel = new SessionTrackerPanel(clientThread, buildSkillIcons(), itemIcons);
         BufferedImage icon = ImageUtil.loadImageResource(SessionTrackerPlugin.class, "icon.png");
         navButton = NavigationButton.builder()
                 .tooltip("Session Tracker")
@@ -131,7 +132,7 @@ public class SessionTrackerPlugin extends Plugin {
                 Long.toString(client.getAccountHash()),
                 currentXp(),
                 namingConfig());
-        SessionHistory history = new SessionHistory(store, Long.toString(client.getAccountHash()), names);
+        SessionHistory history = new SessionHistory(store, Long.toString(client.getAccountHash()), names, potions);
         panel.setService(service, true, history);
     }
 

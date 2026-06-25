@@ -33,6 +33,7 @@ final class SessionsTab extends JPanel {
 
     private final ClientThread clientThread;
     private final Map<String, Icon> skillIcons;
+    private final ItemIconProvider itemIcons;
     private final CardLayout cards = new CardLayout();
     private final JPanel root = new JPanel();
     private final JPanel listBody = new JPanel();
@@ -43,9 +44,10 @@ final class SessionsTab extends JPanel {
     private String expandedSessionId;
     private String editingSessionId;
 
-    SessionsTab(ClientThread clientThread, Map<String, Icon> skillIcons) {
+    SessionsTab(ClientThread clientThread, Map<String, Icon> skillIcons, ItemIconProvider itemIcons) {
         this.clientThread = clientThread;
         this.skillIcons = skillIcons;
+        this.itemIcons = itemIcons;
         setBackground(Styles.PANEL);
         setLayout(new BorderLayout());
         root.setLayout(cards);
