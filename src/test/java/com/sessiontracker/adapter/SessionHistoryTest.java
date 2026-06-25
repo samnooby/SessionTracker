@@ -614,7 +614,7 @@ public class SessionHistoryTest {
 
         SessionHistory history = new SessionHistory(store, "acct", names);
         SessionHistory.CategoryDetail d = history.categoryDetail("Vorkath");
-        // (3_600_000 + 1_800_000) / 2 sessions
+        // s1 wall-clock 3_600_000 + s2 wall-clock 1_800_000, over 2 sessions
         assertEquals(2_700_000L, d.avgSessionDurationMillis);
     }
 
