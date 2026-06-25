@@ -223,12 +223,19 @@ public class SessionTrackerPlugin extends Plugin {
         if (service != null && event.getGroupId() == InterfaceID.BANK) {
             service.onBankOpened(config.bankDetection());
         }
+        // Collecting bought/sold offers changes the inventory but isn't loot; suppress it while open.
+        if (service != null && event.getGroupId() == InterfaceID.GRAND_EXCHANGE) {
+            service.onGeOpened();
+        }
     }
 
     @Subscribe
     public void onWidgetClosed(WidgetClosed event) {
         if (service != null && event.getGroupId() == InterfaceID.BANK) {
             service.onBankClosed();
+        }
+        if (service != null && event.getGroupId() == InterfaceID.GRAND_EXCHANGE) {
+            service.onGeClosed();
         }
     }
 

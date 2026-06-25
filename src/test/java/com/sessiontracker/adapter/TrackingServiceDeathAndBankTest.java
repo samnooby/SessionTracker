@@ -187,6 +187,58 @@ public class TrackingServiceDeathAndBankTest {
     }
 
     @Test
+    public void grandExchangeCollectionIsNotCountedAsLoot() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+
+        service.startSession();
+
+        // Retrieve an item from the Grand Exchange: the GE is open and the inventory gains
+        // 100 coins. This must NOT be reconciled as a pickup/gather the way real loot is.
+        service.onGeOpened();
+        carried.carried.put(560, 100);
+        service.markCarriedDirty();
+        clock.now += 10_000;
+        service.onTick();
+
+        assertEquals(0, service.currentSnapshot().get().gatheredGp);
+        assertEquals(0, service.currentSnapshot().get().pickedGp);
+
+        service.onGeClosed();
+        service.endSession();
+        // Nothing real was tracked, so the empty trip is dropped (no session persisted).
+        assertTrue(store.load("acct-A").isEmpty());
+    }
+
+    @Test
+    public void trackingResumesAfterGrandExchangeCloses() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+
+        service.startSession();
+
+        // Collect 100 coins from the GE (absorbed), then close it.
+        service.onGeOpened();
+        carried.carried.put(560, 100);
+        service.markCarriedDirty();
+        clock.now += 10_000;
+        service.onTick();
+        service.onGeClosed();
+
+        // A genuine gather AFTER the GE closes must still be counted from the post-GE baseline.
+        carried.carried.put(560, 150);
+        service.markCarriedDirty();
+        clock.now += 10_000;
+        service.onTick();
+
+        assertEquals(50, service.currentSnapshot().get().gatheredGp);
+    }
+
+    @Test
     public void twoNonEmptyTripsPersistInOneSession() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
