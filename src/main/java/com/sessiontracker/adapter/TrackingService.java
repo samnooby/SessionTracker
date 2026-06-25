@@ -42,6 +42,7 @@ public final class TrackingService {
     private boolean inventoryDirty;
     private boolean awaitingDeathChoice;
     private boolean bankOpen;
+    private boolean geOpen;
     private final Map<String, Long> lastXp = new HashMap<>();
     private final java.util.Set<ItemKey> droppedThisTick = new java.util.HashSet<>();
 
@@ -98,6 +99,7 @@ public final class TrackingService {
         inventoryDirty = false;
         awaitingDeathChoice = false;
         bankOpen = false;
+        geOpen = false;
         ledger.updateCarried(normalize(carried.currentCarried()));
         refreshCache();
         panel.refresh();
@@ -124,8 +126,9 @@ public final class TrackingService {
         }
         if (inventoryDirty) {
             Map<ItemKey, Integer> settled = normalize(carried.currentCarried());
-            if (bankOpen) {
-                // Deposits/withdrawals while banking change inventory but aren't supplies or gains.
+            if (bankOpen || geOpen) {
+                // Inventory changes while the bank or Grand Exchange is open (deposits,
+                // withdrawals, collecting bought/sold offers) aren't supplies or gains.
                 ledger.rebaseline(settled);
             } else {
                 ledger.updateCarried(settled, droppedThisTick);
@@ -211,6 +214,27 @@ public final class TrackingService {
             return;
         }
         bankOpen = false;
+        ledger.rebaseline(normalize(carried.currentCarried()));
+    }
+
+    /**
+     * Grand Exchange interface opened. While it is open, inventory changes are rebaselined
+     * rather than reconciled (see {@link #onTick()}), so collecting bought/sold offers is not
+     * miscounted as loot. Unlike the bank, opening the GE never ends the trip.
+     */
+    public void onGeOpened() {
+        if (ledger == null || awaitingDeathChoice) {
+            return;
+        }
+        geOpen = true;
+    }
+
+    /** Grand Exchange interface closed. Pin the post-GE inventory as the baseline and resume tracking. */
+    public void onGeClosed() {
+        if (ledger == null || awaitingDeathChoice) {
+            return;
+        }
+        geOpen = false;
         ledger.rebaseline(normalize(carried.currentCarried()));
     }
 
