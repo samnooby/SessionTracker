@@ -131,6 +131,7 @@ final class SessionsTab extends JPanel {
         name.setFont(FontManager.getRunescapeFont());
         name.setForeground(Styles.TEXT);
         name.setAlignmentX(Component.LEFT_ALIGNMENT);
+        name.setToolTipText(displayName);
 
         JPanel meta = new JPanel();
         meta.setLayout(new BoxLayout(meta, BoxLayout.X_AXIS));
@@ -339,7 +340,9 @@ final class SessionsTab extends JPanel {
             int total = 0;
             for (NpcKills k : kills) {
                 total += k.count;
-                grid.add(Styles.keyLabel(k.npc));
+                JLabel npc = Styles.keyLabel(k.npc);
+                npc.setToolTipText(k.npc);
+                grid.add(npc);
                 JLabel v = Styles.valueLabel(Styles.TEXT);
                 v.setText(Integer.toString(k.count));
                 grid.add(v);
@@ -365,7 +368,9 @@ final class SessionsTab extends JPanel {
             long total = 0;
             for (SkillXp s : xp) {
                 total += s.xp;
-                grid.add(Styles.skillLabel(s.skill, skillIcons.get(s.skill)));
+                JLabel skill = Styles.skillLabel(s.skill, skillIcons.get(s.skill));
+                skill.setToolTipText(s.skill);
+                grid.add(skill);
                 JLabel v = Styles.valueLabel(Styles.XP);
                 v.setText(GpFormat.format(s.xp));
                 grid.add(v);
@@ -389,7 +394,12 @@ final class SessionsTab extends JPanel {
             grid.setBackground(Styles.CARD);
             grid.setAlignmentX(Component.LEFT_ALIGNMENT);
             for (SessionHistory.ItemLine l : lines) {
-                grid.add(Styles.keyLabel(l.label + " ×" + l.quantity));
+                JLabel k = Styles.keyLabel(l.label + " ×" + l.quantity);
+                k.setToolTipText(Styles.itemTooltip(l.label, l.quantity, l.isPotion, l.dosesPerPotion));
+                if (l.iconItemId != null) {
+                    itemIcons.apply(k, l.iconItemId);
+                }
+                grid.add(k);
                 JLabel v = Styles.valueLabel(valueColor);
                 v.setText(GpFormat.format(l.gpValue));
                 grid.add(v);

@@ -20,6 +20,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
 import javax.swing.border.EmptyBorder;
+import com.sessiontracker.adapter.PotionFormat;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
 
@@ -215,5 +216,21 @@ final class Styles {
                 attach(child, ma);
             }
         }
+    }
+
+    /** Full-label tooltip; for potions adds a dose→potion breakdown line. {@code doses} may be fractional. */
+    static String itemTooltip(String label, double doses, boolean isPotion, int dosesPerPotion) {
+        if (!isPotion) {
+            return label;
+        }
+        String doseStr = doses == Math.rint(doses)
+                ? Long.toString((long) doses)
+                : String.format(java.util.Locale.US, "%.1f", doses);
+        return "<html>" + escapeHtml(label) + "<br>" + doseStr + " doses ≈ "
+                + PotionFormat.potions(doses, dosesPerPotion) + "</html>";
+    }
+
+    private static String escapeHtml(String s) {
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
 }
