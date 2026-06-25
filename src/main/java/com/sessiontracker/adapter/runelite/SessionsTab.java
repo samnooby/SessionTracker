@@ -313,6 +313,7 @@ final class SessionsTab extends JPanel {
 
             addGroup("Picked up", d.pickedUp, Styles.GP);
             addGroup("Gathered", d.gathered, Styles.GP);
+            addGroup("Used loot", d.usedLoot, Styles.TEXT);
             addGroup("Left on ground", d.leftOnGround, Styles.MISSED);
             addGroup("Supplies used", d.suppliesUsed, Styles.NEG);
             addXpGroup(d.xpGained);
