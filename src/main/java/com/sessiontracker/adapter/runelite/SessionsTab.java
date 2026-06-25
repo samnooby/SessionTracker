@@ -18,6 +18,7 @@ import javax.swing.Icon;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
@@ -250,6 +251,16 @@ final class SessionsTab extends JPanel {
         buttons.add(cancel);
         Styles.capHeight(buttons);
         form.add(buttons);
+
+        boolean isActive = service != null && s.sessionId.equals(service.activeSessionId());
+        if (!isActive) {
+            form.add(Box.createVerticalStrut(5));
+            JButton delete = Styles.button("Delete session", Styles.NEG, Styles.PANEL);
+            delete.setAlignmentX(Component.LEFT_ALIGNMENT);
+            delete.addActionListener(e -> confirmAndDeleteSession(s.sessionId));
+            Styles.capHeight(delete);
+            form.add(delete);
+        }
         return form;
     }
 
@@ -276,22 +287,65 @@ final class SessionsTab extends JPanel {
         }
     }
 
+    private void confirmAndDeleteSession(String sessionId) {
+        if (service != null && sessionId.equals(service.activeSessionId())) {
+            return; // never delete the in-progress session
+        }
+        int choice = JOptionPane.showConfirmDialog(this,
+                "Delete this session? This cannot be undone.",
+                "Delete session", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+        if (choice != JOptionPane.YES_OPTION) {
+            return;
+        }
+        history.deleteSession(sessionId);
+        editingSessionId = null;
+        expandedSessionId = null;
+        reload();
+    }
+
+    private void confirmAndDeleteTrip(String sessionId, String tripId) {
+        if (service != null && sessionId.equals(service.activeSessionId())) {
+            return; // never delete a trip from the in-progress session
+        }
+        int choice = JOptionPane.showConfirmDialog(this,
+                "Delete this trip? This cannot be undone.",
+                "Delete trip", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+        if (choice != JOptionPane.YES_OPTION) {
+            return;
+        }
+        history.deleteTrip(sessionId, tripId);
+        editingSessionId = null;
+        expandedSessionId = null;
+        reload();
+    }
+
     private void showDetail(String sessionId, String tripId) {
         clientThread.invoke(() -> {
             SessionHistory.TripDetail d = history.tripDetail(sessionId, tripId);
-            SwingUtilities.invokeLater(() -> renderDetail(d));
+            SwingUtilities.invokeLater(() -> renderDetail(sessionId, tripId, d));
         });
     }
 
-    private void renderDetail(SessionHistory.TripDetail d) {
+    private void renderDetail(String sessionId, String tripId, SessionHistory.TripDetail d) {
         detailBody.removeAll();
 
         JButton back = Styles.linkButton("Back", Styles.ORANGE);
         back.setIcon(Styles.caret(Styles.CARET_LEFT, Styles.ORANGE));
         back.setIconTextGap(5);
-        back.setAlignmentX(Component.LEFT_ALIGNMENT);
         back.addActionListener(e -> cards.show(root, LIST));
-        detailBody.add(back);
+
+        JPanel topBar = new JPanel(new BorderLayout());
+        topBar.setBackground(Styles.PANEL);
+        topBar.setAlignmentX(Component.LEFT_ALIGNMENT);
+        topBar.add(back, BorderLayout.WEST);
+        boolean isActive = service != null && sessionId.equals(service.activeSessionId());
+        if (!isActive) {
+            JButton delete = Styles.linkButton("Delete trip", Styles.NEG);
+            delete.addActionListener(e -> confirmAndDeleteTrip(sessionId, tripId));
+            topBar.add(delete, BorderLayout.EAST);
+        }
+        Styles.capHeight(topBar);
+        detailBody.add(topBar);
         detailBody.add(Box.createVerticalStrut(6));
 
         if (d != null) {
