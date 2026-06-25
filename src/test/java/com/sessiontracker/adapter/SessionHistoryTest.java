@@ -517,6 +517,94 @@ public class SessionHistoryTest {
     }
 
     @Test
+    public void normalItemLineCarriesItemIdAndIsNotPotion() throws Exception {
+        Path root = Files.createTempDirectory("grt");
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
+        ItemKey coins = ItemKey.item(560);
+        Map<ItemKey, Long> price = new HashMap<>();
+        price.put(coins, 1L);
+        save(store, "acct", "s", "Vorkath", "", 0, 3_600_000L,
+                Arrays.asList(trip("t1", 0, 3_600_000L, 1, qty(coins, 100),
+                        new HashMap<>(), new HashMap<>(), price)));
+
+        SessionHistory history = new SessionHistory(store, "acct", names);
+        SessionHistory.ItemLine line = history.tripDetail("s", "t1").pickedUp.get(0);
+
+        assertEquals(Integer.valueOf(560), line.iconItemId);
+        assertFalse(line.isPotion);
+        assertEquals(1, line.dosesPerPotion);
+    }
+
+    @Test
+    public void potionLineCarriesIconAndDoseMetadataFromRegistry() throws Exception {
+        Path root = Files.createTempDirectory("grt");
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
+        ItemKey coins = ItemKey.item(560);
+        ItemKey prayer = ItemKey.potion("Prayer potion");
+        Map<ItemKey, Long> price = new HashMap<>();
+        price.put(coins, 1L);
+        price.put(prayer, 100L);
+        save(store, "acct", "s", "Vorkath", "", 0, 3_600_000L,
+                Arrays.asList(trip("t1", 0, 3_600_000L, 1, qty(coins, 100),
+                        new HashMap<>(), qty(prayer, 8), price)));
+
+        PotionRegistry registry = new PotionRegistry();
+        registry.observe(2434, "Prayer potion(4)");
+        SessionHistory history = new SessionHistory(store, "acct", names, registry);
+        SessionHistory.ItemLine line = history.tripDetail("s", "t1").suppliesUsed.get(0);
+
+        assertEquals("Prayer potion", line.label);
+        assertTrue(line.isPotion);
+        assertEquals(Integer.valueOf(2434), line.iconItemId);
+        assertEquals(4, line.dosesPerPotion);
+    }
+
+    @Test
+    public void unknownPotionHasNoIconAndDefaultsToFourDoses() throws Exception {
+        Path root = Files.createTempDirectory("grt");
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
+        ItemKey coins = ItemKey.item(560);
+        ItemKey prayer = ItemKey.potion("Prayer potion");
+        Map<ItemKey, Long> price = new HashMap<>();
+        price.put(coins, 1L);
+        price.put(prayer, 100L);
+        save(store, "acct", "s", "Vorkath", "", 0, 3_600_000L,
+                Arrays.asList(trip("t1", 0, 3_600_000L, 1, qty(coins, 100),
+                        new HashMap<>(), qty(prayer, 8), price)));
+
+        // 3-arg constructor -> empty registry, family never observed.
+        SessionHistory history = new SessionHistory(store, "acct", names);
+        SessionHistory.ItemLine line = history.tripDetail("s", "t1").suppliesUsed.get(0);
+
+        assertNull(line.iconItemId);
+        assertTrue(line.isPotion);
+        assertEquals(4, line.dosesPerPotion);
+    }
+
+    @Test
+    public void supplyAverageCarriesPotionMetadata() throws Exception {
+        Path root = Files.createTempDirectory("grt");
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
+        ItemKey coins = ItemKey.item(560);
+        ItemKey prayer = ItemKey.potion("Prayer potion");
+        Map<ItemKey, Long> price = new HashMap<>();
+        price.put(coins, 1L);
+        price.put(prayer, 100L);
+        save(store, "acct", "s", "Vorkath", "", 0, 3_600_000L,
+                Arrays.asList(trip("t1", 0, 3_600_000L, 1, qty(coins, 100),
+                        new HashMap<>(), qty(prayer, 8), price)));
+
+        PotionRegistry registry = new PotionRegistry();
+        registry.observe(2434, "Prayer potion(4)");
+        SessionHistory history = new SessionHistory(store, "acct", names, registry);
+        SessionHistory.ItemAverage avg = history.categoryDetail("Vorkath").supplies.get(0);
+
+        assertEquals("Prayer potion", avg.label);
+        assertTrue(avg.isPotion);
+        assertEquals(4, avg.dosesPerPotion);
+    }
+
+    @Test
     public void sessionSummaryExposesAvgKillsPerTrip() throws Exception {
         Path root = Files.createTempDirectory("grt");
         SessionStore store = new SessionStore(root, new com.google.gson.Gson());
