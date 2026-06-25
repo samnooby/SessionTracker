@@ -105,4 +105,19 @@ public class CategoryAggregatorTest {
         assertEquals(1000, grouped.get("Vorkath").gpPerHour());
         assertEquals(2000, grouped.get("Zulrah").gpPerHour());
     }
+
+    @Test
+    public void averageSessionDurationIsWallClockPerSession() {
+        Session a = session("a", "Cat", trip("a1", 0, 3_600_000, 100, 0)); // 1h wall clock
+        Session b = session("b", "Cat", trip("b1", 0, 1_800_000, 100, 0)); // 0.5h wall clock
+        CategoryStats stats = CategoryStats.from("Cat", Arrays.asList(a, b), oneGp);
+        // (3_600_000 + 1_800_000) / 2 sessions
+        assertEquals(2_700_000L, stats.avgSessionDurationMillis());
+    }
+
+    @Test
+    public void averageSessionDurationIsZeroWithNoSessions() {
+        CategoryStats stats = CategoryStats.from("Cat", java.util.Collections.emptyList(), oneGp);
+        assertEquals(0L, stats.avgSessionDurationMillis());
+    }
 }

@@ -19,14 +19,15 @@ public final class CategoryStats {
     private final long gpPerHour;
     private final long xpPerHour;
     private final long avgTripDurationMillis;
+    private final long avgSessionDurationMillis;
     private final long avgNetProfitPerTrip;
     private final long avgMissedPerTrip;
     private final double avgKillsPerTrip;
     private final Map<ItemKey, Double> avgSuppliesPerTrip;
 
     private CategoryStats(String category, int sessionCount, int tripCount, long gpPerHour,
-                          long xpPerHour, long avgTripDurationMillis, long avgNetProfitPerTrip,
-                          long avgMissedPerTrip, double avgKillsPerTrip,
+                          long xpPerHour, long avgTripDurationMillis, long avgSessionDurationMillis,
+                          long avgNetProfitPerTrip, long avgMissedPerTrip, double avgKillsPerTrip,
                           Map<ItemKey, Double> avgSuppliesPerTrip) {
         this.category = category;
         this.sessionCount = sessionCount;
@@ -34,6 +35,7 @@ public final class CategoryStats {
         this.gpPerHour = gpPerHour;
         this.xpPerHour = xpPerHour;
         this.avgTripDurationMillis = avgTripDurationMillis;
+        this.avgSessionDurationMillis = avgSessionDurationMillis;
         this.avgNetProfitPerTrip = avgNetProfitPerTrip;
         this.avgMissedPerTrip = avgMissedPerTrip;
         this.avgKillsPerTrip = avgKillsPerTrip;
@@ -74,6 +76,7 @@ public final class CategoryStats {
         long gpPerHour = totalWallClock <= 0 ? 0 : totalNet * MILLIS_PER_HOUR / totalWallClock;
         long xpPerHour = totalWallClock <= 0 ? 0 : totalXp * MILLIS_PER_HOUR / totalWallClock;
         long avgDuration = tripCount == 0 ? 0 : totalTripDuration / tripCount;
+        long avgSessionDuration = sessions.isEmpty() ? 0 : totalWallClock / sessions.size();
         long avgNet = tripCount == 0 ? 0 : totalNet / tripCount;
         long avgMissed = tripCount == 0 ? 0 : totalMissed / tripCount;
         double avgKills = tripCount == 0 ? 0 : (double) totalKills / tripCount;
@@ -86,7 +89,7 @@ public final class CategoryStats {
         }
 
         return new CategoryStats(category, sessions.size(), tripCount, gpPerHour, xpPerHour,
-                avgDuration, avgNet, avgMissed, avgKills, avgSupplies);
+                avgDuration, avgSessionDuration, avgNet, avgMissed, avgKills, avgSupplies);
     }
 
     public String category() {
@@ -111,6 +114,10 @@ public final class CategoryStats {
 
     public long avgTripDurationMillis() {
         return avgTripDurationMillis;
+    }
+
+    public long avgSessionDurationMillis() {
+        return avgSessionDurationMillis;
     }
 
     public long avgNetProfitPerTrip() {
