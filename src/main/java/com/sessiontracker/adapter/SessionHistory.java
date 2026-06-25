@@ -28,11 +28,18 @@ public final class SessionHistory {
     private final SessionStore store;
     private final String accountHash;
     private final IntFunction<String> names;
+    private final PotionRegistry potions;
 
     public SessionHistory(SessionStore store, String accountHash, IntFunction<String> names) {
+        this(store, accountHash, names, new PotionRegistry());
+    }
+
+    public SessionHistory(SessionStore store, String accountHash, IntFunction<String> names,
+                          PotionRegistry potions) {
         this.store = store;
         this.accountHash = accountHash;
         this.names = names;
+        this.potions = potions;
     }
 
     public List<SessionSummary> sessionsNewestFirst() {
@@ -222,8 +229,10 @@ public final class SessionHistory {
     private List<ItemLine> lines(Map<ItemKey, Integer> items, ItemValuer valuer) {
         List<ItemLine> out = new ArrayList<>();
         for (Map.Entry<ItemKey, Integer> e : items.entrySet()) {
-            out.add(new ItemLine(label(e.getKey()), e.getValue(),
-                    valuer.value(e.getKey(), e.getValue())));
+            ItemMeta meta = describe(e.getKey());
+            out.add(new ItemLine(meta.label, e.getValue(),
+                    valuer.value(e.getKey(), e.getValue()),
+                    meta.iconItemId, meta.isPotion, meta.dosesPerPotion));
         }
         out.sort(Comparator.comparingLong((ItemLine l) -> l.gpValue).reversed());
         return out;
@@ -256,17 +265,39 @@ public final class SessionHistory {
         long sumGp = 0;
         for (Map.Entry<ItemKey, Long> e : totalGp.entrySet()) {
             sumGp += e.getValue();
+            ItemMeta meta = describe(e.getKey());
             double avgQty = tripCount == 0 ? 0.0 : (double) totalQty.get(e.getKey()) / tripCount;
             long avgGp = tripCount == 0 ? 0 : e.getValue() / tripCount;
-            items.add(new ItemAverage(label(e.getKey()), avgQty, avgGp));
+            items.add(new ItemAverage(meta.label, avgQty, avgGp, meta.isPotion, meta.dosesPerPotion));
         }
         items.sort(Comparator.comparingLong((ItemAverage a) -> a.avgGpPerTrip).reversed());
         long avgTotal = tripCount == 0 ? 0 : sumGp / tripCount;
         return new ItemAverages(items, avgTotal);
     }
 
-    private String label(ItemKey key) {
-        return key.isPotion() ? key.potionFamily() : names.apply(key.itemId());
+    private ItemMeta describe(ItemKey key) {
+        if (!key.isPotion()) {
+            int id = key.itemId();
+            return new ItemMeta(names.apply(id), id, false, 1);
+        }
+        String family = key.potionFamily();
+        return potions.representativeFor(family)
+                .map(rep -> new ItemMeta(family, rep.itemId(), true, rep.dose()))
+                .orElseGet(() -> new ItemMeta(family, null, true, 4));
+    }
+
+    private static final class ItemMeta {
+        final String label;
+        final Integer iconItemId;
+        final boolean isPotion;
+        final int dosesPerPotion;
+
+        ItemMeta(String label, Integer iconItemId, boolean isPotion, int dosesPerPotion) {
+            this.label = label;
+            this.iconItemId = iconItemId;
+            this.isPotion = isPotion;
+            this.dosesPerPotion = dosesPerPotion;
+        }
     }
 
     // ----- view-model carriers -----
@@ -331,11 +362,18 @@ public final class SessionHistory {
         public final String label;
         public final int quantity;
         public final long gpValue;
+        public final Integer iconItemId;
+        public final boolean isPotion;
+        public final int dosesPerPotion;
 
-        public ItemLine(String label, int quantity, long gpValue) {
+        public ItemLine(String label, int quantity, long gpValue, Integer iconItemId,
+                        boolean isPotion, int dosesPerPotion) {
             this.label = label;
             this.quantity = quantity;
             this.gpValue = gpValue;
+            this.iconItemId = iconItemId;
+            this.isPotion = isPotion;
+            this.dosesPerPotion = dosesPerPotion;
         }
     }
 
@@ -389,11 +427,16 @@ public final class SessionHistory {
         public final String label;
         public final double avgQtyPerTrip;
         public final long avgGpPerTrip;
+        public final boolean isPotion;
+        public final int dosesPerPotion;
 
-        public ItemAverage(String label, double avgQtyPerTrip, long avgGpPerTrip) {
+        public ItemAverage(String label, double avgQtyPerTrip, long avgGpPerTrip,
+                           boolean isPotion, int dosesPerPotion) {
             this.label = label;
             this.avgQtyPerTrip = avgQtyPerTrip;
             this.avgGpPerTrip = avgGpPerTrip;
+            this.isPotion = isPotion;
+            this.dosesPerPotion = dosesPerPotion;
         }
     }
 
