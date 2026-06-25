@@ -538,4 +538,63 @@ public class SessionHistoryTest {
 
         assertEquals(3.0, sum.avgKillsPerTrip, 0.0001);
     }
+
+    @Test
+    public void deleteSessionRemovesItFromTheList() throws Exception {
+        Path root = Files.createTempDirectory("grt");
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
+        ItemKey coins = ItemKey.item(560);
+        Map<ItemKey, Long> price = new HashMap<>();
+        price.put(coins, 1L);
+        save(store, "acct", "keep", "Vorkath", "morning", 0, 3_600_000L,
+                Arrays.asList(trip("t1", 0, 3_600_000L, 5, qty(coins, 100),
+                        new HashMap<>(), new HashMap<>(), price)));
+        save(store, "acct", "drop", "Zulrah", "evening", 10_000_000L, 13_600_000L,
+                Arrays.asList(trip("t2", 10_000_000L, 13_600_000L, 3, qty(coins, 50),
+                        new HashMap<>(), new HashMap<>(), price)));
+
+        SessionHistory history = new SessionHistory(store, "acct", names);
+        history.deleteSession("drop");
+
+        List<SessionHistory.SessionSummary> list = history.sessionsNewestFirst();
+        assertEquals(1, list.size());
+        assertEquals("keep", list.get(0).sessionId);
+    }
+
+    @Test
+    public void deleteTripRemovesOnlyThatTripAndRecomputesStats() throws Exception {
+        Path root = Files.createTempDirectory("grt");
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
+        ItemKey coins = ItemKey.item(560);
+        Map<ItemKey, Long> price = new HashMap<>();
+        price.put(coins, 1L);
+        save(store, "acct", "s", "Vorkath", "morning", 0, 7_200_000L, Arrays.asList(
+                trip("t1", 0, 3_600_000L, 5, qty(coins, 100), new HashMap<>(), new HashMap<>(), price),
+                trip("t2", 3_600_000L, 7_200_000L, 3, qty(coins, 50), new HashMap<>(), new HashMap<>(), price)));
+
+        SessionHistory history = new SessionHistory(store, "acct", names);
+        history.deleteTrip("s", "t1");
+
+        List<SessionHistory.TripSummary> trips = history.tripsFor("s");
+        assertEquals(1, trips.size());
+        assertEquals("t2", trips.get(0).tripId);
+        // Stats reflect only the surviving trip: net profit is now t2's 50 coins.
+        assertEquals(50L, history.sessionsNewestFirst().get(0).netProfit);
+    }
+
+    @Test
+    public void deletingLastTripDeletesTheWholeSession() throws Exception {
+        Path root = Files.createTempDirectory("grt");
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
+        ItemKey coins = ItemKey.item(560);
+        Map<ItemKey, Long> price = new HashMap<>();
+        price.put(coins, 1L);
+        save(store, "acct", "s", "Vorkath", "morning", 0, 3_600_000L, Arrays.asList(
+                trip("only", 0, 3_600_000L, 5, qty(coins, 100), new HashMap<>(), new HashMap<>(), price)));
+
+        SessionHistory history = new SessionHistory(store, "acct", names);
+        history.deleteTrip("s", "only");
+
+        assertTrue(history.sessionsNewestFirst().isEmpty());
+    }
 }
