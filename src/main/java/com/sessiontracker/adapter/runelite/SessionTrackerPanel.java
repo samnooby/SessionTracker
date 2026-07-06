@@ -19,9 +19,10 @@ public final class SessionTrackerPanel extends PluginPanel implements PanelView 
     private final StatsTab statsTab;
     private final JTabbedPane tabs = new JTabbedPane();
 
-    public SessionTrackerPanel(ClientThread clientThread, Map<String, Icon> skillIcons) {
+    public SessionTrackerPanel(ClientThread clientThread, Map<String, Icon> skillIcons,
+                               ItemIconProvider itemIcons) {
         this.nowTab = new NowTab(clientThread, skillIcons);
-        this.sessionsTab = new SessionsTab(clientThread, skillIcons);
+        this.sessionsTab = new SessionsTab(clientThread, skillIcons, itemIcons);
         this.statsTab = new StatsTab(clientThread);
         setLayout(new BorderLayout());
         tabs.addTab("Now", nowTab);

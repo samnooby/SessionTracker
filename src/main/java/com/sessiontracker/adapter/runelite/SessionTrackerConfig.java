@@ -43,4 +43,13 @@ public interface SessionTrackerConfig extends Config {
     default int onGroundThreshold() {
         return 0;
     }
+
+    @ConfigItem(
+        keyName = "showItemIcons",
+        name = "Show item icons",
+        description = "Show item icons beside loot/supply rows in the Sessions trip detail"
+    )
+    default boolean showItemIcons() {
+        return true;
+    }
 }
