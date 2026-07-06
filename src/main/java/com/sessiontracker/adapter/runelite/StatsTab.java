@@ -1,5 +1,6 @@
 package com.sessiontracker.adapter.runelite;
 
+import com.sessiontracker.adapter.DurationFormat;
 import com.sessiontracker.adapter.GpFormat;
 import com.sessiontracker.adapter.SessionHistory;
 import java.awt.BorderLayout;
@@ -25,7 +26,6 @@ final class StatsTab extends JPanel {
 
     private static final String CARDS = "cards";
     private static final String DETAIL = "detail";
-    private static final long MILLIS_PER_MINUTE = 60_000L;
 
     private final ClientThread clientThread;
     private final CardLayout cards = new CardLayout();
@@ -176,7 +176,7 @@ final class StatsTab extends JPanel {
         avg.add(missed);
         avg.add(Styles.keyLabel("Trip length"));
         JLabel len = Styles.valueLabel(Styles.TEXT);
-        len.setText((d.avgTripDurationMillis / MILLIS_PER_MINUTE) + "m");
+        len.setText(DurationFormat.compact(d.avgTripDurationMillis));
         avg.add(len);
         avg.add(Styles.keyLabel("Kills"));
         JLabel kills = Styles.valueLabel(Styles.TEXT);
@@ -185,6 +185,17 @@ final class StatsTab extends JPanel {
         Styles.capHeight(avg);
         avgCard.add(avg);
         detailBody.add(avgCard);
+
+        detailBody.add(Styles.sectionHeader("Per session"));
+        JPanel sessionCard = Styles.card();
+        JPanel sessionGrid = grid();
+        sessionGrid.add(Styles.keyLabel("Avg session length"));
+        JLabel sessionLen = Styles.valueLabel(Styles.TEXT);
+        sessionLen.setText(DurationFormat.compact(d.avgSessionDurationMillis));
+        sessionGrid.add(sessionLen);
+        Styles.capHeight(sessionGrid);
+        sessionCard.add(sessionGrid);
+        detailBody.add(sessionCard);
 
         addItemTable("Avg picked up / trip", d.pickedAverages, d.avgPickedGpPerTrip, Styles.GP);
         addItemTable("Avg gathered / trip", d.gatheredAverages, d.avgGatheredGpPerTrip, Styles.GP);

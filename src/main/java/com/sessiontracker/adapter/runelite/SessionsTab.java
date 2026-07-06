@@ -1,5 +1,6 @@
 package com.sessiontracker.adapter.runelite;
 
+import com.sessiontracker.adapter.DurationFormat;
 import com.sessiontracker.adapter.GpFormat;
 import com.sessiontracker.adapter.NpcKills;
 import com.sessiontracker.adapter.SessionHistory;
@@ -136,7 +137,8 @@ final class SessionsTab extends JPanel {
         meta.setBackground(Styles.CARD);
         meta.setAlignmentX(Component.LEFT_ALIGNMENT);
         String tripWord = s.tripCount == 1 ? "trip" : "trips";
-        JLabel metaText = Styles.keyLabel(s.tripCount + " " + tripWord + " · ");
+        JLabel metaText = Styles.keyLabel(s.tripCount + " " + tripWord + " · "
+                + DurationFormat.compact(s.wallClockMillis) + " · ");
         JLabel net = new JLabel(GpFormat.format(s.netProfit));
         net.setFont(FontManager.getRunescapeSmallFont());
         net.setForeground(s.netProfit < 0 ? Styles.NEG : Styles.GP);
@@ -178,7 +180,8 @@ final class SessionsTab extends JPanel {
         JPanel meta = new JPanel();
         meta.setLayout(new BoxLayout(meta, BoxLayout.X_AXIS));
         meta.setBackground(Styles.TILE);
-        JLabel label = Styles.keyLabel("Trip " + number + " · " + t.kills + " kills · ");
+        JLabel label = Styles.keyLabel("Trip " + number + " · "
+                + DurationFormat.compact(t.durationMillis) + " · " + t.kills + " kills · ");
         JLabel net = new JLabel(GpFormat.format(t.netProfit));
         net.setFont(FontManager.getRunescapeSmallFont());
         net.setForeground(t.netProfit < 0 ? Styles.NEG : Styles.GP);
@@ -359,6 +362,10 @@ final class SessionsTab extends JPanel {
             JLabel missed = Styles.valueLabel(Styles.MISSED);
             missed.setText(GpFormat.format(d.missedValue));
             grid.add(missed);
+            grid.add(Styles.keyLabel("Duration"));
+            JLabel duration = Styles.valueLabel(Styles.TEXT);
+            duration.setText(DurationFormat.compact(d.durationMillis));
+            grid.add(duration);
             Styles.capHeight(grid);
             summary.add(grid);
             detailBody.add(summary);
@@ -469,6 +476,10 @@ final class SessionsTab extends JPanel {
         JPanel grid = new JPanel(new GridLayout(0, 2, 0, 3));
         grid.setBackground(Styles.CARD);
         grid.setAlignmentX(Component.LEFT_ALIGNMENT);
+        grid.add(Styles.keyLabel("Duration"));
+        JLabel duration = Styles.valueLabel(Styles.TEXT);
+        duration.setText(DurationFormat.compact(s.wallClockMillis));
+        grid.add(duration);
         grid.add(Styles.keyLabel("Avg net / trip"));
         grid.add(signedValue(s.avgNetProfitPerTrip));
         grid.add(Styles.keyLabel("Avg XP / trip"));

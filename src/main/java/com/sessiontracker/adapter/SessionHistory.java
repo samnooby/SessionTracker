@@ -86,7 +86,8 @@ public final class SessionHistory {
                 return new TripDetail(lines(t.pickedUpKept(), v), lines(t.missed(), v),
                         lines(t.suppliesUsed(), v), t.netProfit(v), t.missedValue(v),
                         SkillXp.sortedFrom(t.xpGained()), NpcKills.sortedByCountDesc(t.kills()),
-                        lines(t.gatheredKept(), v), t.gatheredValue(v), lines(t.consumedLoot(), v));
+                        lines(t.gatheredKept(), v), t.gatheredValue(v), lines(t.consumedLoot(), v),
+                        t.durationMillis());
             }
         }
         return null;
@@ -164,7 +165,8 @@ public final class SessionHistory {
                 .thenComparing(k -> k.npc));
 
         return new CategoryDetail(cs.gpPerHour(), cs.xpPerHour(), cs.avgNetProfitPerTrip(),
-                cs.avgMissedPerTrip(), cs.avgTripDurationMillis(), cs.avgKillsPerTrip(),
+                cs.avgMissedPerTrip(), cs.avgTripDurationMillis(), cs.avgSessionDurationMillis(),
+                cs.avgKillsPerTrip(),
                 supplyAvg.items, supplyAvg.avgTotalGpPerTrip, xpAverages, killAverages,
                 pickedAvg.items, pickedAvg.avgTotalGpPerTrip,
                 missedAvg.items, droppedAvg.items, droppedAvg.avgTotalGpPerTrip,
@@ -367,11 +369,13 @@ public final class SessionHistory {
         public final List<ItemLine> gathered;
         public final long gatheredValue;
         public final List<ItemLine> usedLoot;
+        public final long durationMillis;
 
         public TripDetail(List<ItemLine> pickedUp, List<ItemLine> leftOnGround,
                           List<ItemLine> suppliesUsed, long netProfit, long missedValue,
                           List<SkillXp> xpGained, List<NpcKills> killsByNpc,
-                          List<ItemLine> gathered, long gatheredValue, List<ItemLine> usedLoot) {
+                          List<ItemLine> gathered, long gatheredValue, List<ItemLine> usedLoot,
+                          long durationMillis) {
             this.pickedUp = pickedUp;
             this.leftOnGround = leftOnGround;
             this.suppliesUsed = suppliesUsed;
@@ -382,6 +386,7 @@ public final class SessionHistory {
             this.gathered = gathered;
             this.gatheredValue = gatheredValue;
             this.usedLoot = usedLoot;
+            this.durationMillis = durationMillis;
         }
     }
 
@@ -444,6 +449,7 @@ public final class SessionHistory {
         public final long avgNetProfitPerTrip;
         public final long avgMissedPerTrip;
         public final long avgTripDurationMillis;
+        public final long avgSessionDurationMillis;
         public final double avgKillsPerTrip;
         public final List<ItemAverage> supplies;
         public final long avgTotalSuppliesGpPerTrip;
@@ -463,7 +469,8 @@ public final class SessionHistory {
         public final long avgUsedLootGpPerTrip;
 
         public CategoryDetail(long gpPerHour, long xpPerHour, long avgNetProfitPerTrip,
-                              long avgMissedPerTrip, long avgTripDurationMillis, double avgKillsPerTrip,
+                              long avgMissedPerTrip, long avgTripDurationMillis,
+                              long avgSessionDurationMillis, double avgKillsPerTrip,
                               List<ItemAverage> supplies, long avgTotalSuppliesGpPerTrip,
                               List<SkillXpAverage> xpAverages, List<NpcKillAverage> killAverages,
                               List<ItemAverage> pickedAverages, long avgPickedGpPerTrip,
@@ -477,6 +484,7 @@ public final class SessionHistory {
             this.avgNetProfitPerTrip = avgNetProfitPerTrip;
             this.avgMissedPerTrip = avgMissedPerTrip;
             this.avgTripDurationMillis = avgTripDurationMillis;
+            this.avgSessionDurationMillis = avgSessionDurationMillis;
             this.avgKillsPerTrip = avgKillsPerTrip;
             this.supplies = supplies;
             this.avgTotalSuppliesGpPerTrip = avgTotalSuppliesGpPerTrip;
