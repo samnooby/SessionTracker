@@ -107,6 +107,41 @@ public class TrackingServiceTest {
     }
 
     @Test
+    public void startingWithAFullInventoryDoesNotCountItAsGathered() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        carried.carried.put(560, 50); // already carried when the session starts
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+
+        service.startSession();
+        service.markCarriedDirty();
+        clock.now = 30_000;
+        service.onTick();
+
+        assertEquals(0, service.currentSnapshot().get().gatheredGp);
+    }
+
+    @Test
+    public void startingBeforeTheInventoryIsReadableCountsItAsGathered() throws Exception {
+        // Documents why SessionTrackerPlugin defers auto-start to a game tick instead of firing at
+        // LOGGED_IN: the item containers can still be null there, and a session started against an
+        // empty carried snapshot books the whole inventory as gathered the moment it appears.
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+
+        service.startSession();      // inventory not readable yet: baselines empty
+        carried.carried.put(560, 50); // container arrives
+        service.markCarriedDirty();
+        clock.now = 30_000;
+        service.onTick();
+
+        assertEquals(50, service.currentSnapshot().get().gatheredGp);
+    }
+
+    @Test
     public void killThenTickPickupIsTracked() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();

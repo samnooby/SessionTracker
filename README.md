@@ -25,7 +25,9 @@ modifies the game interface.
 ## Usage
 
 Open the **Session Tracker** panel from the RuneLite sidebar. Tracking starts automatically
-when you log in. The panel has three tabs:
+when you log in — turn off **Auto-start tracking on login** in the plugin settings if you'd
+rather start each session yourself with the **Start tracking** button. Stopping tracking by
+hand stays stopped until your next login. The panel has three tabs:
 
 - **Now** — your current trip and session, updating live.
 - **Sessions** — past sessions with expandable summaries.

@@ -7,6 +7,18 @@ import net.runelite.client.config.ConfigItem;
 @ConfigGroup("sessiontracker")
 public interface SessionTrackerConfig extends Config {
 
+    String AUTO_START_TRACKING = "autoStartTracking";
+
+    @ConfigItem(
+        keyName = AUTO_START_TRACKING,
+        name = "Auto-start tracking on login",
+        description = "Start a session automatically when you log in, instead of clicking "
+                + "Start tracking. Stopping tracking manually stays stopped until you log in again."
+    )
+    default boolean autoStartTracking() {
+        return true;
+    }
+
     @ConfigItem(
         keyName = "bankDetection",
         name = "Auto-end trip at bank",
