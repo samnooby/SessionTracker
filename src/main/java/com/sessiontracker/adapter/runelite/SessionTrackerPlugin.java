@@ -36,6 +36,7 @@ import net.runelite.client.RuneLite;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.events.NpcLootReceived;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.ItemStack;
@@ -63,6 +64,13 @@ public class SessionTrackerPlugin extends Plugin {
     private SessionTrackerPanel panel;
     private NavigationButton navButton;
     private TrackingService service;
+
+    /**
+     * One-shot: a session should start as soon as the inventory is readable. Consumed by
+     * {@link #onGameTick}, never re-armed by the plugin itself, so manually stopping tracking
+     * stays stopped for the rest of the login.
+     */
+    private volatile boolean pendingAutoStart;
 
     @Provides
     SessionTrackerConfig provideConfig(ConfigManager configManager) {
@@ -92,6 +100,7 @@ public class SessionTrackerPlugin extends Plugin {
             service.endSession();
             service = null;
         }
+        pendingAutoStart = false;
         clientToolbar.removeNavigation(navButton);
         panel = null;
     }
@@ -134,6 +143,25 @@ public class SessionTrackerPlugin extends Plugin {
                 namingConfig());
         SessionHistory history = new SessionHistory(store, Long.toString(client.getAccountHash()), names, potions);
         panel.setService(service, true, history);
+        pendingAutoStart = config.autoStartTracking();
+    }
+
+    /**
+     * Start the pending session once the inventory is actually readable. Deliberately deferred to
+     * a game tick rather than done at LOGGED_IN: the item containers can still be null at that
+     * point, and {@link TrackingService#startSession()} baselines whatever is carried right then.
+     * Baselining an empty inventory would make the first real container update look like the whole
+     * inventory had just been gathered.
+     */
+    private void consumePendingAutoStart() {
+        if (!pendingAutoStart || service == null) {
+            return;
+        }
+        if (client.getItemContainer(InventoryID.INVENTORY) == null) {
+            return; // not loaded yet; try again next tick
+        }
+        pendingAutoStart = false;
+        service.startSession();
     }
 
     /** Current total XP for every real skill, keyed by Skill.getName(). Read on the client thread. */
@@ -176,12 +204,29 @@ public class SessionTrackerPlugin extends Plugin {
                 service.endSession();
                 service = null;
             }
+            pendingAutoStart = false;
             panel.setService(null, false, null);
+        }
+    }
+
+    /**
+     * Turning auto-start on mid-login arms it immediately, so the setting takes effect without
+     * needing a relog. Only ever arms it — turning it off never stops a session already running.
+     */
+    @Subscribe
+    public void onConfigChanged(ConfigChanged event) {
+        if (!"sessiontracker".equals(event.getGroup())
+                || !SessionTrackerConfig.AUTO_START_TRACKING.equals(event.getKey())) {
+            return;
+        }
+        if (config.autoStartTracking() && service != null && !service.isTracking()) {
+            pendingAutoStart = true;
         }
     }
 
     @Subscribe
     public void onGameTick(GameTick event) {
+        consumePendingAutoStart();
         if (service != null) {
             service.onTick();
         }
