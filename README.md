@@ -1,5 +1,7 @@
 # Session Tracker
 
+[![Build](https://github.com/samnooby/SessionTracker/actions/workflows/build.yml/badge.svg)](https://github.com/samnooby/SessionTracker/actions/workflows/build.yml)
+
 A RuneLite plugin that tracks your **trips** and **sessions** so you can see exactly what
 you gained and spent: loot picked up versus left on the ground, supplies consumed, XP, and
 GP/hr — all without leaving the game.
@@ -42,6 +44,11 @@ Session history is stored locally under your RuneLite directory
 ./gradlew build        # compile and run tests
 ./gradlew runClient    # launch a dev RuneLite client with the plugin loaded
 ```
+
+The tests run headless and cover the core ledger maths, the plugin's RuneLite event wiring
+(login, loot, banking, death, logout) against a mocked client, and the Swing panels, so most
+changes can be checked with `./gradlew test` instead of launching a client. GitHub Actions runs
+the same build on every push and pull request.
 
 ## License
 

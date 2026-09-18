@@ -11,6 +11,7 @@ import com.google.gson.Gson;
 import com.google.inject.Provides;
 import java.awt.Image;
 import java.awt.image.BufferedImage;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.IntFunction;
@@ -72,6 +73,9 @@ public class SessionTrackerPlugin extends Plugin {
      */
     private volatile boolean pendingAutoStart;
 
+    /** Where session JSON is stored. Package-private so tests can point it at a temp directory. */
+    Path storeRoot = RuneLite.RUNELITE_DIR.toPath().resolve("sessiontracker");
+
     @Provides
     SessionTrackerConfig provideConfig(ConfigManager configManager) {
         return configManager.getConfig(SessionTrackerConfig.class);
@@ -128,7 +132,7 @@ public class SessionTrackerPlugin extends Plugin {
     private void buildService() {
         PotionRegistry potions = new PotionRegistry();
         LiveItemValuer valuer = new LiveItemValuer(new ItemManagerPriceSource(itemManager), potions);
-        SessionStore store = new SessionStore(RuneLite.RUNELITE_DIR.toPath().resolve("sessiontracker"), gson.newBuilder().setPrettyPrinting().create());
+        SessionStore store = new SessionStore(storeRoot, gson.newBuilder().setPrettyPrinting().create());
         IntFunction<String> names = id -> itemManager.getItemComposition(id).getName();
         service = new TrackingService(
                 new SystemClock(),
