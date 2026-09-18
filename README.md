@@ -43,6 +43,11 @@ Session history is stored locally under your RuneLite directory
 ./gradlew runClient    # launch a dev RuneLite client with the plugin loaded
 ```
 
+The tests run headless and cover the core ledger maths, the plugin's RuneLite event wiring
+(login, loot, banking, death, logout) against a mocked client, and the Swing panels, so most
+changes can be checked with `./gradlew test` instead of launching a client. GitHub Actions runs
+the same build on every push and pull request.
+
 ## License
 
 BSD 2-Clause. See [LICENSE](LICENSE).
