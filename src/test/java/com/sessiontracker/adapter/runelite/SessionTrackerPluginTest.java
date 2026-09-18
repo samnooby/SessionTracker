@@ -161,6 +161,7 @@ public class SessionTrackerPluginTest {
         inventoryBecomes(new Item(SHARK, 4), new Item(COINS, 1_000)); // ate a shark
         tick();
         gainHitpointsXp(120);
+        tick(); // XP is recorded immediately but the panel re-renders on the next tick
         flushEdt();
 
         // The Now tab reflects the live trip before it is banked.

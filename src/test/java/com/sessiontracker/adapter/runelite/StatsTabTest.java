@@ -78,17 +78,17 @@ public class StatsTabTest {
         press(label(tab, "Vorkath"));
         flushEdt();
 
-        assertHasText(tab, "Per hour");
-        assertHasText(tab, "Per-trip averages");
+        assertHasText(tab, "PER HOUR"); // section headers render uppercased
+        assertHasText(tab, "PER-TRIP AVERAGES");
         assertHasText(tab, "74.0K");   // avg net per trip: (150,000 - 2,000) / 2
         assertHasText(tab, "Trip length");
         assertHasText(tab, "30m");
-        assertHasText(tab, "Per session");
+        assertHasText(tab, "PER SESSION");
         assertHasText(tab, "Avg session length");
         assertHasText(tab, "1h 0m");
-        assertHasText(tab, "XP averages");
+        assertHasText(tab, "XP AVERAGES");
         assertHasText(tab, "Ranged");
-        assertHasText(tab, "Kill averages");
+        assertHasText(tab, "KILL AVERAGES");
         assertNoText(tab, "Oak logs");
 
         click(button(tab, "Back"));

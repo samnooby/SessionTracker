@@ -108,8 +108,8 @@ public class SessionsTabTest {
         assertHasText(tab, "Net profit");
         assertHasText(tab, "Duration");
         assertHasText(tab, "30m");
-        assertHasText(tab, "Kills");
-        assertHasText(tab, "Picked up");
+        assertHasText(tab, "KILLS"); // section headers render uppercased
+        assertHasText(tab, "PICKED UP");
         assertHasText(tab, "Coins ×100000");
         assertHasText(tab, "Ranged");
         assertHasText(tab, "12.0K");
