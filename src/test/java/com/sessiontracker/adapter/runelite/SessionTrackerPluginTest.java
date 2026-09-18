@@ -22,9 +22,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.gson.Gson;
+import com.google.inject.AbstractModule;
 import com.google.inject.Guice;
-import com.google.inject.testing.fieldbinder.Bind;
-import com.google.inject.testing.fieldbinder.BoundFieldModule;
 import com.sessiontracker.adapter.SessionHistory;
 import com.sessiontracker.adapter.SessionStore;
 import com.sessiontracker.adapter.StoredSession;
@@ -77,13 +76,13 @@ public class SessionTrackerPluginTest {
 
     @Inject private SessionTrackerPlugin plugin;
 
-    @Mock @Bind private Client client;
-    @Mock @Bind private ItemManager itemManager;
-    @Mock @Bind private ClientToolbar clientToolbar;
-    @Mock @Bind private ClientThread clientThread;
-    @Mock @Bind private SessionTrackerConfig config;
-    @Mock @Bind private SkillIconManager skillIconManager;
-    @Bind private Gson gson = new Gson();
+    @Mock private Client client;
+    @Mock private ItemManager itemManager;
+    @Mock private ClientToolbar clientToolbar;
+    @Mock private ClientThread clientThread;
+    @Mock private SessionTrackerConfig config;
+    @Mock private SkillIconManager skillIconManager;
+    private final Gson gson = new Gson();
 
     @Mock private ItemContainer inventory;
     @Mock private ItemContainer equipment;
@@ -125,7 +124,19 @@ public class SessionTrackerPluginTest {
         priceItem(COINS, 1);
         priceItem(BONES, 100);
 
-        Guice.createInjector(BoundFieldModule.of(this)).injectMembers(this);
+        // Bind the mocks with the Guice RuneLite already ships, so no extra test library is needed.
+        Guice.createInjector(new AbstractModule() {
+            @Override
+            protected void configure() {
+                bind(Client.class).toInstance(client);
+                bind(ItemManager.class).toInstance(itemManager);
+                bind(ClientToolbar.class).toInstance(clientToolbar);
+                bind(ClientThread.class).toInstance(clientThread);
+                bind(SessionTrackerConfig.class).toInstance(config);
+                bind(SkillIconManager.class).toInstance(skillIconManager);
+                bind(Gson.class).toInstance(gson);
+            }
+        }).injectMembers(this);
         plugin.storeRoot = storeRoot;
         plugin.startUp();
     }
