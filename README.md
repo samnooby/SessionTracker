@@ -1,5 +1,7 @@
 # Session Tracker
 
+[![Build](https://github.com/samnooby/SessionTracker/actions/workflows/build.yml/badge.svg)](https://github.com/samnooby/SessionTracker/actions/workflows/build.yml)
+
 A RuneLite plugin that tracks your **trips** and **sessions** so you can see exactly what
 you gained and spent: loot picked up versus left on the ground, supplies consumed, XP, and
 GP/hr — all without leaving the game.
