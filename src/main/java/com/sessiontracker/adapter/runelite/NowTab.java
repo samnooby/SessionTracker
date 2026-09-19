@@ -223,7 +223,49 @@ final class NowTab extends JPanel {
         return card;
     }
 
+    // What the kills/XP cards currently show. Rebuilding Swing rows every tick is wasteful and
+    // the lists only change on a kill or an XP drop, so unchanged lists are left alone.
+    private List<NpcKills> renderedKills;
+    private List<SkillXp> renderedXp;
+    private boolean killsRendered;
+    private boolean xpRendered;
+
+    private static boolean sameKills(List<NpcKills> a, List<NpcKills> b) {
+        if (a == b) {
+            return true;
+        }
+        if (a == null || b == null || a.size() != b.size()) {
+            return false;
+        }
+        for (int i = 0; i < a.size(); i++) {
+            if (a.get(i).count != b.get(i).count || !a.get(i).npc.equals(b.get(i).npc)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean sameXp(List<SkillXp> a, List<SkillXp> b) {
+        if (a == b) {
+            return true;
+        }
+        if (a == null || b == null || a.size() != b.size()) {
+            return false;
+        }
+        for (int i = 0; i < a.size(); i++) {
+            if (a.get(i).xp != b.get(i).xp || !a.get(i).skill.equals(b.get(i).skill)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private void renderKills(List<NpcKills> kills) {
+        if (killsRendered && sameKills(kills, renderedKills)) {
+            return;
+        }
+        killsRendered = true;
+        renderedKills = kills;
         killsBody.removeAll();
         if (kills == null || kills.isEmpty()) {
             killsBody.add(Styles.keyLabel("None"));
@@ -265,6 +307,11 @@ final class NowTab extends JPanel {
     }
 
     private void renderXp(List<SkillXp> xp) {
+        if (xpRendered && sameXp(xp, renderedXp)) {
+            return;
+        }
+        xpRendered = true;
+        renderedXp = xp;
         xpBody.removeAll();
         if (xp == null || xp.isEmpty()) {
             xpBody.add(Styles.keyLabel("None"));

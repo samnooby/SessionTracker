@@ -8,6 +8,7 @@ import com.sessiontracker.core.item.ItemKey;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -57,6 +58,17 @@ public final class TrackingService {
     private TripSnapshot cachedSnapshot;
     private SessionSnapshot cachedSessionSnapshot;
 
+    // Running totals of the session's completed trips, valued at their captured prices. They
+    // only change when a trip ends, so the per-tick session snapshot never re-decodes them.
+    private long completedNet;
+    private long completedXp;
+    private long completedGathered;
+
+    // The current trip's valued contents. Rebuilt only when the ledger changes (kill, XP,
+    // inventory reconcile); on quiet ticks the snapshot just refreshes duration and GP/hr.
+    private TripValues tripValues;
+    private boolean ledgerDirty;
+
     public TrackingService(Clock clock, CarriedSnapshotSupplier carried, IntFunction<String> names,
                            PotionRegistry potions, LiveItemValuer valuer, SessionStore store,
                            PanelView panel, String accountHash, CurrentXpSupplier currentXp,
@@ -93,6 +105,9 @@ public final class TrackingService {
         activeSession.name = "";
         activeSession.startMillis = clock.nowMillis();
         activeSession.trips = new ArrayList<>();
+        completedNet = 0;
+        completedXp = 0;
+        completedGathered = 0;
         startTrip();
     }
 
@@ -107,6 +122,7 @@ public final class TrackingService {
         geOpen = false;
         containerTransferTicks = 0;
         ledger.updateCarried(normalize(carried.currentCarried()));
+        ledgerDirty = true;
         refreshCache();
         panel.refresh();
     }
@@ -139,6 +155,7 @@ public final class TrackingService {
                 ledger.rebaseline(settled);
             } else {
                 ledger.updateCarried(settled, droppedThisTick);
+                ledgerDirty = true;
             }
             inventoryDirty = false;
             containerTransferTicks = 0;
@@ -173,6 +190,7 @@ public final class TrackingService {
             activeSession.category = npc;
         }
         ledger.recordKill(npc, normalize(rawDrops));
+        ledgerDirty = true;
         refreshCache();
     }
 
@@ -184,6 +202,7 @@ public final class TrackingService {
         long delta = totalXp - previous;
         if (ledger != null && !awaitingDeathChoice && delta > 0) {
             ledger.recordXp(skill, delta);
+            ledgerDirty = true;
             refreshCache();
         }
     }
@@ -338,35 +357,61 @@ public final class TrackingService {
 
     private TripSnapshot computeSnapshot() {
         long now = clock.nowMillis();
+        if (ledgerDirty || tripValues == null) {
+            tripValues = valueLedger(now);
+            ledgerDirty = false;
+        }
+        TripValues v = tripValues;
+        long duration = now - tripStartMillis;
+        long net = v.picked + v.gathered - v.supplies;
+        long gpPerHour = duration <= 0 ? 0 : net * MILLIS_PER_HOUR / duration;
+        int tripNumber = activeSession.trips.size() + 1;
+        return new TripSnapshot(tripNumber, duration, v.kills,
+                v.picked, v.ground, v.supplies, v.gathered, v.consumed, v.totalXp, gpPerHour,
+                v.xpBySkill, v.killsByNpc);
+    }
+
+    /** Value the live ledger. Only the duration-independent parts; see {@link #computeSnapshot()}. */
+    private TripValues valueLedger(long now) {
         Trip trip = ledger.build(tripId, tripStartMillis, now, tripDied);
         // Picked-up and gathered are shown as "kept" (gross minus what we consumed this
         // trip); the consumed portion is reported separately as used loot. Net is unchanged:
         // keptPicked + keptGathered already excludes consumed, so we don't subtract it again.
-        long picked = trip.pickedUpKeptValue(valuer);
-        long ground = trip.missedValue(valuer);
-        long supplies = trip.suppliesValue(valuer);
-        long gathered = trip.gatheredKeptValue(valuer);
-        long consumed = trip.consumedLootValue(valuer);
-        long duration = now - tripStartMillis;
-        long net = picked + gathered - supplies;
-        long gpPerHour = duration <= 0 ? 0 : net * MILLIS_PER_HOUR / duration;
-        int tripNumber = activeSession.trips.size() + 1;
-        return new TripSnapshot(tripNumber, duration, trip.totalKills(),
-                picked, ground, supplies, gathered, consumed, trip.totalXp(), gpPerHour,
+        return new TripValues(trip.totalKills(),
+                trip.pickedUpKeptValue(valuer), trip.missedValue(valuer), trip.suppliesValue(valuer),
+                trip.gatheredKeptValue(valuer), trip.consumedLootValue(valuer), trip.totalXp(),
                 SkillXp.sortedFrom(trip.xpGained()), NpcKills.sortedByCountDesc(trip.kills()));
     }
 
-    private SessionSnapshot computeSessionSnapshot() {
-        long net = 0;
-        long xp = 0;
-        long gathered = 0;
-        for (StoredTrip st : activeSession.trips) {
-            Trip t = SessionMapper.toTrip(st);
-            FrozenItemValuer frozen = new FrozenItemValuer(SessionMapper.unitPrices(st));
-            net += t.netProfit(frozen);
-            xp += t.totalXp();
-            gathered += t.gatheredKeptValue(frozen);
+    private static final class TripValues {
+        final int kills;
+        final long picked;
+        final long ground;
+        final long supplies;
+        final long gathered;
+        final long consumed;
+        final long totalXp;
+        final List<SkillXp> xpBySkill;
+        final List<NpcKills> killsByNpc;
+
+        TripValues(int kills, long picked, long ground, long supplies, long gathered, long consumed,
+                   long totalXp, List<SkillXp> xpBySkill, List<NpcKills> killsByNpc) {
+            this.kills = kills;
+            this.picked = picked;
+            this.ground = ground;
+            this.supplies = supplies;
+            this.gathered = gathered;
+            this.consumed = consumed;
+            this.totalXp = totalXp;
+            this.xpBySkill = xpBySkill;
+            this.killsByNpc = killsByNpc;
         }
+    }
+
+    private SessionSnapshot computeSessionSnapshot() {
+        long net = completedNet;
+        long xp = completedXp;
+        long gathered = completedGathered;
         int tripCount = activeSession.trips.size();
         if (cachedSnapshot != null) {
             // pickedGp/gatheredGp are already "kept" (consumed excluded), so don't subtract it.
@@ -419,6 +464,10 @@ public final class TrackingService {
         Map<ItemKey, Long> unitPrices = captureUnitPrices(trip);
         activeSession.trips.add(SessionMapper.toStored(trip, unitPrices));
         activeSession.endMillis = trip.endMillis();
+        FrozenItemValuer frozen = new FrozenItemValuer(unitPrices);
+        completedNet += trip.netProfit(frozen);
+        completedXp += trip.totalXp();
+        completedGathered += trip.gatheredKeptValue(frozen);
         store.save(activeSession);
     }
 

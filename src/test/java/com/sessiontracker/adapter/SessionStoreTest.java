@@ -124,4 +124,40 @@ public class SessionStoreTest {
 
         assertEquals(1, store.load("acct-A").size());
     }
+
+    @Test
+    public void loadServesSavesAndDeletesWithoutAliasingTheSavedObject() throws Exception {
+        Path root = Files.createTempDirectory("grt-store");
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
+        StoredSession live = sampleSession("s1", "acct-A");
+        store.save(live);
+
+        // Mutating the caller's object after saving must not leak into what load returns.
+        live.name = "changed after save";
+        live.trips.clear();
+        StoredSession loaded = store.load("acct-A").get(0);
+        assertEquals("evening", loaded.name);
+        assertEquals(1, loaded.trips.size());
+
+        // Saving the same id again replaces rather than duplicates.
+        live.name = "renamed";
+        store.save(live);
+        assertEquals(1, store.load("acct-A").size());
+        assertEquals("renamed", store.load("acct-A").get(0).name);
+
+        store.delete("acct-A", "s1");
+        assertTrue(store.load("acct-A").isEmpty());
+        assertFalse(Files.exists(root.resolve("acct-A").resolve("s1.json")));
+    }
+
+    @Test
+    public void loadReturnsAnIndependentList() throws Exception {
+        Path root = Files.createTempDirectory("grt-store");
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
+        store.save(sampleSession("s1", "acct-A"));
+
+        store.load("acct-A").clear();
+
+        assertEquals(1, store.load("acct-A").size());
+    }
 }
