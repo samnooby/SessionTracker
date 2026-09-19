@@ -43,6 +43,11 @@ public final class TrackingService {
     private boolean awaitingDeathChoice;
     private boolean bankOpen;
     private boolean geOpen;
+    // While > 0, the next inventory change is a container transfer (see onContainerTransfer) and
+    // is rebaselined rather than reconciled. Counts down on quiet ticks so a click that changed
+    // nothing (e.g. filling an already-full sack) cannot swallow a later real consumption.
+    private int containerTransferTicks;
+    private static final int CONTAINER_TRANSFER_WINDOW_TICKS = 3;
     private final Map<String, Long> lastXp = new HashMap<>();
     private final java.util.Set<ItemKey> droppedThisTick = new java.util.HashSet<>();
 
@@ -100,6 +105,7 @@ public final class TrackingService {
         awaitingDeathChoice = false;
         bankOpen = false;
         geOpen = false;
+        containerTransferTicks = 0;
         ledger.updateCarried(normalize(carried.currentCarried()));
         refreshCache();
         panel.refresh();
@@ -126,14 +132,18 @@ public final class TrackingService {
         }
         if (inventoryDirty) {
             Map<ItemKey, Integer> settled = normalize(carried.currentCarried());
-            if (bankOpen || geOpen) {
+            if (bankOpen || geOpen || containerTransferTicks > 0) {
                 // Inventory changes while the bank or Grand Exchange is open (deposits,
-                // withdrawals, collecting bought/sold offers) aren't supplies or gains.
+                // withdrawals, collecting bought/sold offers), or right after a container
+                // transfer, move items around rather than consuming or gaining them.
                 ledger.rebaseline(settled);
             } else {
                 ledger.updateCarried(settled, droppedThisTick);
             }
             inventoryDirty = false;
+            containerTransferTicks = 0;
+        } else if (containerTransferTicks > 0) {
+            containerTransferTicks--;
         }
         droppedThisTick.clear();
         maybeNameAfterGather();
@@ -236,6 +246,20 @@ public final class TrackingService {
         }
         geOpen = false;
         ledger.rebaseline(normalize(carried.currentCarried()));
+    }
+
+    /**
+     * Items are about to move between the inventory and a storage container whose contents the
+     * client cannot see (filling or emptying a herb sack, gem bag, coal bag, fish barrel, log
+     * basket...), or a readable container has just synced for the first time this login. The next
+     * inventory change within a few ticks is a move, not a consumption or a gain, so it is
+     * rebaselined: anything gathered earlier stays gathered, and nothing is booked as a supply.
+     */
+    public void onContainerTransfer() {
+        if (ledger == null || awaitingDeathChoice) {
+            return;
+        }
+        containerTransferTicks = CONTAINER_TRANSFER_WINDOW_TICKS;
     }
 
     public void discardTrip() {

@@ -13,6 +13,7 @@ import net.runelite.api.InventoryID;
 import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.Varbits;
+import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.VarbitID;
 import org.junit.Before;
 import org.junit.Test;
@@ -24,6 +25,7 @@ public class ClientCarriedSnapshotSupplierTest {
     private static final int COINS = 995;
     private static final int FIRE_RUNE = 554;
     private static final int ZULRAH_SCALE = 12934;
+    private static final int SAPPHIRE = 1607;
 
     private final Client client = mock(Client.class);
     private final ItemContainer inventory = mock(ItemContainer.class);
@@ -36,6 +38,7 @@ public class ClientCarriedSnapshotSupplierTest {
         when(inventory.getItems()).thenReturn(new Item[0]);
         when(equipment.getItems()).thenReturn(new Item[0]);
         when(client.getVarbitValue(anyInt())).thenReturn(0);
+        when(client.getItemContainer(anyInt())).thenReturn(null); // no storage containers synced
     }
 
     @Test
@@ -81,5 +84,45 @@ public class ClientCarriedSnapshotSupplierTest {
         Map<Integer, Integer> carried = new ClientCarriedSnapshotSupplier(client).currentCarried();
 
         assertEquals(Integer.valueOf(200), carried.get(ZULRAH_SCALE));
+    }
+
+    @Test
+    public void lootingBagAndSeedBoxContentsCountAsCarried() {
+        ItemContainer lootingBag = mock(ItemContainer.class);
+        when(lootingBag.getItems()).thenReturn(new Item[] { new Item(COINS, 5_000), new Item(-1, 0) });
+        ItemContainer seedBox = mock(ItemContainer.class);
+        when(seedBox.getItems()).thenReturn(new Item[] { new Item(SAPPHIRE, 3) });
+        when(client.getItemContainer(net.runelite.api.gameval.InventoryID.LOOTING_BAG)).thenReturn(lootingBag);
+        when(client.getItemContainer(net.runelite.api.gameval.InventoryID.SEED_BOX)).thenReturn(seedBox);
+        when(inventory.getItems()).thenReturn(new Item[] { new Item(COINS, 100) });
+
+        Map<Integer, Integer> carried = new ClientCarriedSnapshotSupplier(client).currentCarried();
+
+        assertEquals(Integer.valueOf(5_100), carried.get(COINS));
+        assertEquals(Integer.valueOf(3), carried.get(SAPPHIRE));
+    }
+
+    @Test
+    public void plankSackCountsCountAsCarried() {
+        when(client.getVarbitValue(VarbitID.PLANK_SACK_OAK)).thenReturn(20);
+        when(client.getVarbitValue(VarbitID.PLANK_SACK_MAHOGANY)).thenReturn(8);
+        when(inventory.getItems()).thenReturn(new Item[] { new Item(ItemID.PLANK_OAK, 5) });
+
+        Map<Integer, Integer> carried = new ClientCarriedSnapshotSupplier(client).currentCarried();
+
+        assertEquals(Integer.valueOf(25), carried.get(ItemID.PLANK_OAK));
+        assertEquals(Integer.valueOf(8), carried.get(ItemID.PLANK_MAHOGANY));
+    }
+
+    @Test
+    public void storedContainerIdsAreRecognised() {
+        assertTrue(StoredContainerReader.isStoredContainer(net.runelite.api.gameval.InventoryID.LOOTING_BAG));
+        assertTrue(StoredContainerReader.isStoredContainer(net.runelite.api.gameval.InventoryID.SEED_BOX));
+        assertTrue(!StoredContainerReader.isStoredContainer(InventoryID.INVENTORY.getId()));
+        assertTrue(PlankSackReader.isPlankSackVarbit(VarbitID.PLANK_SACK_PLAIN));
+        assertTrue(StashContainers.isTransfer(ItemID.GEM_BAG_OPEN, "Fill"));
+        assertTrue(StashContainers.isTransfer(ItemID.FISH_BARREL_CLOSED, "Empty"));
+        assertTrue(!StashContainers.isTransfer(ItemID.GEM_BAG, "Check"));
+        assertTrue(!StashContainers.isTransfer(SAPPHIRE, "Fill"));
     }
 }
