@@ -23,6 +23,10 @@ modifies the game interface.
   normalised so partial potions are counted fairly.
 - **Death & bank detection** — optionally accounts for deaths and bank trips so a single
   trip's numbers stay accurate.
+- **Storage containers** — the rune pouch, looting bag, seed box, plank sack and the forestry,
+  huntsman's and tackle kits are read directly, and filling or emptying a herb sack, gem bag,
+  coal bag, fish barrel or log basket is treated as a move, so stashing items is never counted
+  as a cost and unpacking them is never counted as a gain.
 
 ## Usage
 
@@ -37,6 +41,16 @@ hand stays stopped until your next login. The panel has three tabs:
 
 Session history is stored locally under your RuneLite directory
 (`.runelite/sessiontracker`). Nothing is sent anywhere.
+
+### Known limitations
+
+- **Open containers that collect automatically.** An open gem bag, coal bag, herb sack, seed box,
+  fish barrel or log basket takes what you gather before it reaches your inventory, and the game
+  does not expose those contents. Nothing is mis-counted, but those gains are not recorded until
+  you empty the container at a bank. Keep it closed and use **Fill** if you want them tracked.
+- **Using an item on a sack** (rather than the sack's own Fill option) is not detected.
+- **Charged items** are only tracked for the Zulrah's-scale weapons (blowpipe, serpentine helm,
+  toxic staff).
 
 ## Building
 

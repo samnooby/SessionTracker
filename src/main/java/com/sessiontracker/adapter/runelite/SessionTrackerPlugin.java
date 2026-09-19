@@ -13,7 +13,9 @@ import java.awt.Image;
 import java.awt.image.BufferedImage;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.IntFunction;
 import javax.inject.Inject;
 import javax.swing.Icon;
@@ -72,6 +74,12 @@ public class SessionTrackerPlugin extends Plugin {
      * stays stopped for the rest of the login.
      */
     private volatile boolean pendingAutoStart;
+
+    /**
+     * Storage containers (looting bag, seed box...) the client has sent us since login. The first
+     * sync of each brings its pre-existing contents into carried, which must not read as gathered.
+     */
+    private final Set<Integer> syncedContainers = new HashSet<>();
 
     /** Where session JSON is stored. Package-private so tests can point it at a temp directory. */
     Path storeRoot = RuneLite.RUNELITE_DIR.toPath().resolve("sessiontracker");
@@ -148,6 +156,7 @@ public class SessionTrackerPlugin extends Plugin {
         SessionHistory history = new SessionHistory(store, Long.toString(client.getAccountHash()), names, potions);
         panel.setService(service, true, history);
         pendingAutoStart = config.autoStartTracking();
+        syncedContainers.clear();
     }
 
     /**
@@ -244,6 +253,12 @@ public class SessionTrackerPlugin extends Plugin {
         int id = event.getContainerId();
         if (id == InventoryID.INVENTORY.getId() || id == InventoryID.EQUIPMENT.getId()) {
             service.markCarriedDirty();
+        } else if (StoredContainerReader.isStoredContainer(id)) {
+            if (syncedContainers.add(id)) {
+                // First time we see this container: its contents were already there, not gathered.
+                service.onContainerTransfer();
+            }
+            service.markCarriedDirty();
         }
     }
 
@@ -291,8 +306,15 @@ public class SessionTrackerPlugin extends Plugin {
 
     @Subscribe
     public void onMenuOptionClicked(MenuOptionClicked event) {
-        if (service != null && "Drop".equals(event.getMenuOption()) && event.getItemId() > 0) {
+        if (service == null) {
+            return;
+        }
+        if ("Drop".equals(event.getMenuOption()) && event.getItemId() > 0) {
             service.markDropped(event.getItemId());
+        }
+        // Filling or emptying a sack/bag/barrel moves items; the client can't see inside these.
+        if (event.isItemOp() && StashContainers.isTransfer(event.getItemId(), event.getMenuOption())) {
+            service.onContainerTransfer();
         }
     }
 
@@ -300,7 +322,8 @@ public class SessionTrackerPlugin extends Plugin {
     public void onVarbitChanged(VarbitChanged event) {
         if (service != null
                 && (RunePouchReader.isRunePouchVarbit(event.getVarbitId())
-                    || ChargedItemReader.isChargeVarbit(event.getVarbitId()))) {
+                    || ChargedItemReader.isChargeVarbit(event.getVarbitId())
+                    || PlankSackReader.isPlankSackVarbit(event.getVarbitId()))) {
             service.markCarriedDirty();
         }
     }

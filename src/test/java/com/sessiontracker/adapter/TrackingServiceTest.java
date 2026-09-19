@@ -760,4 +760,71 @@ public class TrackingServiceTest {
         assertEquals("my grind", summary.name);
         assertEquals("Bossing", summary.category);
     }
+
+    // ----- container transfers -----
+
+    @Test
+    public void fillingAContainerIsNotASupply() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        carried.carried.put(560, 50);
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+        service.startSession();
+
+        service.onContainerTransfer();       // clicked Fill on a sack
+        carried.carried.put(560, 20);        // 30 moved into it
+        service.markCarriedDirty();
+        clock.now = 1_000;
+        service.onTick();
+
+        assertEquals(0, service.currentSnapshot().get().suppliesGp);
+
+        // The suppression is consumed by that change: a later decrease is a real supply.
+        carried.carried.put(560, 19);
+        service.markCarriedDirty();
+        clock.now = 2_000;
+        service.onTick();
+        assertEquals(1, service.currentSnapshot().get().suppliesGp);
+    }
+
+    @Test
+    public void emptyingAContainerIsNotGathered() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        carried.carried.put(560, 20);
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+        service.startSession();
+
+        service.onContainerTransfer();       // clicked Empty
+        carried.carried.put(560, 50);        // 30 came back out
+        service.markCarriedDirty();
+        clock.now = 1_000;
+        service.onTick();
+
+        assertEquals(0, service.currentSnapshot().get().gatheredGp);
+    }
+
+    @Test
+    public void containerTransferSuppressionExpiresAfterQuietTicks() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        carried.carried.put(560, 50);
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+        service.startSession();
+
+        service.onContainerTransfer();       // e.g. Fill on an already-full sack: nothing moves
+        for (int i = 0; i < 4; i++) {
+            clock.now += 600;
+            service.onTick();                // quiet ticks run the window down
+        }
+        carried.carried.put(560, 49);        // a genuine consumption well after the click
+        service.markCarriedDirty();
+        clock.now += 600;
+        service.onTick();
+
+        assertEquals(1, service.currentSnapshot().get().suppliesGp);
+    }
 }

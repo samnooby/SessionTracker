@@ -9,17 +9,25 @@ import net.runelite.api.InventoryID;
 import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
 
-/** Reads inventory + equipment from the client and combines them into one carried map. */
+/**
+ * Reads everything the player is carrying from the client and combines it into one carried map:
+ * inventory, equipment, rune pouch, charged weapons, the readable storage containers (looting
+ * bag, seed box, ...) and the plank sack.
+ */
 public final class ClientCarriedSnapshotSupplier implements CarriedSnapshotSupplier {
 
     private final Client client;
     private final RunePouchReader pouch;
     private final ChargedItemReader charged;
+    private final StoredContainerReader stored;
+    private final PlankSackReader planks;
 
     public ClientCarriedSnapshotSupplier(Client client) {
         this.client = client;
         this.pouch = new RunePouchReader(client);
         this.charged = new ChargedItemReader(client);
+        this.stored = new StoredContainerReader(client);
+        this.planks = new PlankSackReader(client);
     }
 
     @Override
@@ -28,7 +36,9 @@ public final class ClientCarriedSnapshotSupplier implements CarriedSnapshotSuppl
                 toMap(client.getItemContainer(InventoryID.INVENTORY)),
                 toMap(client.getItemContainer(InventoryID.EQUIPMENT)),
                 pouch.contents(),
-                charged.contents());
+                charged.contents(),
+                stored.contents(),
+                planks.contents());
     }
 
     private static Map<Integer, Integer> toMap(ItemContainer container) {
