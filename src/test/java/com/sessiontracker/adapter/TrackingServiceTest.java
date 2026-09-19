@@ -827,4 +827,44 @@ public class TrackingServiceTest {
 
         assertEquals(1, service.currentSnapshot().get().suppliesGp);
     }
+
+    // ----- snapshot refresh -----
+
+    @Test
+    public void quietTicksRefreshDurationWithoutLosingTripValues() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+        service.startSession();
+
+        Map<Integer, Integer> drop = new HashMap<>();
+        drop.put(560, 100);
+        service.onKill("Vorkath", drop);
+        carried.carried.put(560, 100);
+        service.markCarriedDirty();
+        clock.now = 60_000;
+        service.onTick();
+        service.onXp("Ranged", 500);   // primes the baseline
+        service.onXp("Ranged", 620);   // +120
+
+        // Nothing changes for a while; the snapshot still tracks time and keeps its values.
+        clock.now = 120_000;
+        service.onTick();
+        clock.now = 180_000;
+        service.onTick();
+
+        TripSnapshot snap = service.currentSnapshot().get();
+        assertEquals(180_000, snap.durationMillis);
+        assertEquals(1, snap.kills);
+        assertEquals(100, snap.pickedGp);
+        assertEquals(120, snap.totalXp);
+        assertEquals("Vorkath", snap.killsByNpc.get(0).npc);
+        assertEquals("Ranged", snap.xpBySkill.get(0).skill);
+        assertEquals(100 * 3_600_000L / 180_000, snap.gpPerHour);
+
+        // And a later change is picked up again.
+        service.onKill("Vorkath", drop);
+        assertEquals(2, service.currentSnapshot().get().kills);
+    }
 }
