@@ -310,19 +310,36 @@ final class SessionsTab extends JPanel {
     }
 
     private void confirmAndDeleteTrip(String sessionId, String tripId) {
-        if (service != null && sessionId.equals(service.activeSessionId())) {
-            return; // never delete a trip from the in-progress session
-        }
         int choice = JOptionPane.showConfirmDialog(this,
                 "Delete this trip? This cannot be undone.",
                 "Delete trip", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
         if (choice != JOptionPane.YES_OPTION) {
             return;
         }
-        history.deleteTrip(sessionId, tripId);
         editingSessionId = null;
         expandedSessionId = null;
-        reload();
+        if (service != null && sessionId.equals(service.activeSessionId())) {
+            // The running session owns its trips: it drops the trip, recomputes and saves.
+            clientThread.invoke(() -> {
+                service.deleteCompletedTrip(tripId);
+                SwingUtilities.invokeLater(this::reload);
+            });
+        } else {
+            history.deleteTrip(sessionId, tripId);
+            reload();
+        }
+    }
+
+    private void resumeSession(String sessionId) {
+        if (service == null) {
+            return;
+        }
+        editingSessionId = null;
+        expandedSessionId = sessionId;
+        clientThread.invoke(() -> {
+            service.resumeSession(sessionId);
+            SwingUtilities.invokeLater(this::reload);
+        });
     }
 
     private void showDetail(String sessionId, String tripId) {
@@ -344,12 +361,9 @@ final class SessionsTab extends JPanel {
         topBar.setBackground(Styles.PANEL);
         topBar.setAlignmentX(Component.LEFT_ALIGNMENT);
         topBar.add(back, BorderLayout.WEST);
-        boolean isActive = service != null && sessionId.equals(service.activeSessionId());
-        if (!isActive) {
-            JButton delete = Styles.linkButton("Delete trip", Styles.NEG);
-            delete.addActionListener(e -> confirmAndDeleteTrip(sessionId, tripId));
-            topBar.add(delete, BorderLayout.EAST);
-        }
+        JButton delete = Styles.linkButton("Delete trip", Styles.NEG);
+        delete.addActionListener(e -> confirmAndDeleteTrip(sessionId, tripId));
+        topBar.add(delete, BorderLayout.EAST);
         Styles.capHeight(topBar);
         detailBody.add(topBar);
         detailBody.add(Box.createVerticalStrut(6));
@@ -504,6 +518,18 @@ final class SessionsTab extends JPanel {
         grid.add(avgKills);
         Styles.capHeight(grid);
         card.add(grid);
+
+        boolean isActive = service != null && s.sessionId.equals(service.activeSessionId());
+        if (service != null && !isActive) {
+            card.add(Box.createVerticalStrut(6));
+            JButton resume = Styles.button("Resume session", Styles.ORANGE, Styles.PANEL);
+            resume.setToolTipText("Continue this session: new trips are added to it and the "
+                    + "time since it ended is not counted");
+            resume.setAlignmentX(Component.LEFT_ALIGNMENT);
+            resume.addActionListener(e -> resumeSession(s.sessionId));
+            Styles.capHeight(resume);
+            card.add(resume);
+        }
 
         return card;
     }

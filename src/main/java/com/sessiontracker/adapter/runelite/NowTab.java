@@ -38,6 +38,7 @@ final class NowTab extends JPanel {
     private final JButton startStop = Styles.button("Start tracking", Styles.ORANGE, Styles.PANEL);
     private final JButton endTrip = Styles.button("End trip", Styles.CARD, Styles.TEXT);
     private final JButton discardTrip = Styles.button("Discard", Styles.CARD, Styles.NEG);
+    private final JButton resumeTrip = Styles.button("Resume last trip", Styles.CARD, Styles.TEXT);
 
     private final JLabel tripGpHr = new JLabel("-");
     private final JLabel tripXpHr = new JLabel("-");
@@ -112,6 +113,12 @@ final class NowTab extends JPanel {
                 service.discardTrip();
             }
         }));
+        resumeTrip.setToolTipText("Reopen the last completed trip and fold the current one into it");
+        resumeTrip.addActionListener(e -> onClient(() -> {
+            if (service != null && service.isTracking()) {
+                service.resumeLastTrip();
+            }
+        }));
         keepDeath.addActionListener(e -> {
             deathPrompt.setVisible(false);
             renderControls();
@@ -171,6 +178,11 @@ final class NowTab extends JPanel {
         pair.add(discardTrip);
         Styles.capHeight(pair);
         wrap.add(pair);
+        wrap.add(Box.createVerticalStrut(5));
+
+        resumeTrip.setAlignmentX(Component.LEFT_ALIGNMENT);
+        Styles.capHeight(resumeTrip);
+        wrap.add(resumeTrip);
 
         Styles.capHeight(wrap);
         return wrap;
@@ -376,6 +388,10 @@ final class NowTab extends JPanel {
         startStop.setText(tracking ? "Stop tracking" : "Start tracking");
         endTrip.setEnabled(tracking);
         discardTrip.setEnabled(tracking);
+        // The session snapshot counts the current trip, so > 1 means a completed trip exists.
+        boolean hasCompletedTrip = tracking
+                && service.currentSessionSnapshot().map(s -> s.tripCount > 1).orElse(false);
+        resumeTrip.setEnabled(hasCompletedTrip);
         if (!loggedIn) {
             status.setText("Log in to start tracking");
             statusDot.setForeground(Styles.SUBTEXT);

@@ -49,7 +49,8 @@ public final class SessionMapper {
         for (StoredTrip t : stored.trips) {
             trips.add(toTrip(t));
         }
-        return new Session(stored.id, stored.accountHash, stored.category, stored.name, trips);
+        return new Session(stored.id, stored.accountHash, stored.category, stored.name, trips,
+                stored.pausedMillis);
     }
 
     public static Function<Trip, ItemValuer> valuerFor(StoredSession stored) {

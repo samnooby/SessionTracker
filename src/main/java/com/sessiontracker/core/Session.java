@@ -16,13 +16,26 @@ public final class Session {
     private String category;
     private String name;
     private final List<Trip> trips;
+    // Time the session spent resumed-after-ending, excluded from its wall clock so a session
+    // picked up again the next day is not rated as if it ran all night.
+    private final long pausedMillis;
 
     public Session(String id, String accountHash, String category, String name, List<Trip> trips) {
+        this(id, accountHash, category, name, trips, 0);
+    }
+
+    public Session(String id, String accountHash, String category, String name, List<Trip> trips,
+                   long pausedMillis) {
         this.id = id;
         this.accountHash = accountHash;
         this.category = category;
         this.name = name;
         this.trips = new ArrayList<>(trips);
+        this.pausedMillis = pausedMillis;
+    }
+
+    public long pausedMillis() {
+        return pausedMillis;
     }
 
     public String id() {
@@ -63,7 +76,7 @@ public final class Session {
             first = Math.min(first, t.startMillis());
             last = Math.max(last, t.endMillis());
         }
-        return last - first;
+        return Math.max(0, last - first - pausedMillis);
     }
 
     public long totalNetProfit(Function<Trip, ItemValuer> valuerFn) {

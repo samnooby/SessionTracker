@@ -363,4 +363,42 @@ public class TripLedgerTest {
         assertEquals(2, trip.suppliesValue(oneGp));
         assertEquals(98, trip.netProfit(oneGp));               // 0 picked + 100 gathered - 2 supplies
     }
+
+    @Test
+    public void resumingRestoresTheTripAndReconcilesItsLeftoverLoot() {
+        TripLedger first = new TripLedger();
+        first.updateCarried(carried());
+        first.recordKill("Vorkath", carried(ItemKey.item(560), 100));
+        first.updateCarried(carried(ItemKey.item(560), 60)); // took 60, left 40 on the ground
+        Trip banked = first.build("t1", 0, 60_000, false);
+
+        TripLedger resumed = TripLedger.resuming(banked);
+        resumed.rebaseline(carried(ItemKey.item(560), 60));   // back from the bank, same inventory
+        resumed.updateCarried(carried(ItemKey.item(560), 100)); // picked up the other 40
+        Trip trip = resumed.build("t1", 0, 120_000, false);
+
+        assertEquals(1, trip.totalKills());
+        assertEquals(Integer.valueOf(100), trip.pickedUp().get(ItemKey.item(560)));
+        assertTrue(trip.missed().isEmpty());
+    }
+
+    @Test
+    public void absorbMergesASplitTrip() {
+        TripLedger a = new TripLedger();
+        a.recordKill("Vorkath", carried(ItemKey.item(560), 100));
+        a.recordXp("Ranged", 500);
+        TripLedger b = new TripLedger();
+        b.recordKill("Vorkath", carried(ItemKey.item(560), 50));
+        b.recordXp("Ranged", 250);
+        b.recordXp("Hitpoints", 80);
+
+        TripLedger merged = TripLedger.resuming(a.build("t1", 0, 10, false));
+        merged.absorb(b.build("t2", 10, 20, false));
+        Trip trip = merged.build("t1", 0, 20, false);
+
+        assertEquals(2, trip.totalKills());
+        assertEquals(Integer.valueOf(150), trip.dropped().get(ItemKey.item(560)));
+        assertEquals(Long.valueOf(750), trip.xpGained().get("Ranged"));
+        assertEquals(Long.valueOf(80), trip.xpGained().get("Hitpoints"));
+    }
 }

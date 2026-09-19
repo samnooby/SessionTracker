@@ -329,6 +329,102 @@ public final class TrackingService {
         return Optional.ofNullable(cachedSessionSnapshot);
     }
 
+    /**
+     * Take a finished session back up as the active one and start a new trip in it. Any session
+     * currently running is ended first (and kept if it recorded anything). The time between the
+     * session ending and now is recorded as paused so it does not count against its GP/hr.
+     */
+    public void resumeSession(String sessionId) {
+        if (awaitingDeathChoice) {
+            return;
+        }
+        if (activeSession != null && sessionId.equals(activeSession.id)) {
+            return;
+        }
+        StoredSession stored = store.copyOf(accountHash, sessionId);
+        if (stored == null) {
+            return;
+        }
+        if (activeSession != null) {
+            endSession();
+        }
+        long now = clock.nowMillis();
+        if (stored.endMillis > 0 && now > stored.endMillis) {
+            stored.pausedMillis += now - stored.endMillis;
+        }
+        if (stored.trips == null) {
+            stored.trips = new ArrayList<>();
+        }
+        lastXp.clear();
+        lastXp.putAll(currentXp.currentXp());
+        activeSession = stored;
+        recomputeCompletedTotals();
+        startTrip();
+    }
+
+    /**
+     * Reopen the session's most recently completed trip and fold the current trip into it, as
+     * if the trip had never been split (e.g. the bank ended it and the player is going straight
+     * back). Loot that trip left on the ground reconciles again if it is picked up now.
+     */
+    public void resumeLastTrip() {
+        if (ledger == null || awaitingDeathChoice || activeSession.trips.isEmpty()) {
+            return;
+        }
+        StoredTrip last = activeSession.trips.remove(activeSession.trips.size() - 1);
+        Trip previous = SessionMapper.toTrip(last);
+        Trip current = ledger.build(tripId, tripStartMillis, clock.nowMillis(), tripDied);
+        TripLedger merged = TripLedger.resuming(previous);
+        merged.absorb(current);
+        merged.rebaseline(normalize(carried.currentCarried()));
+        ledger = merged;
+        tripId = previous.id();
+        tripStartMillis = previous.startMillis();
+        tripDied = previous.died() || tripDied;
+        recomputeCompletedTotals();
+        persistActiveSession();
+        ledgerDirty = true;
+        refreshCache();
+        panel.refresh();
+    }
+
+    /** Remove a completed trip from the active session; totals and averages follow from the rest. */
+    public void deleteCompletedTrip(String tripId) {
+        if (activeSession == null) {
+            return;
+        }
+        if (!activeSession.trips.removeIf(t -> t.id.equals(tripId))) {
+            return;
+        }
+        recomputeCompletedTotals();
+        persistActiveSession();
+        refreshCache();
+        panel.refresh();
+    }
+
+    /** Save the active session, or drop its file if it no longer has any completed trips. */
+    private void persistActiveSession() {
+        if (activeSession.trips.isEmpty()) {
+            store.delete(accountHash, activeSession.id);
+        } else {
+            store.save(activeSession);
+        }
+    }
+
+    /** Rebuild the completed-trip totals from the stored trips (only on resume or delete). */
+    private void recomputeCompletedTotals() {
+        completedNet = 0;
+        completedXp = 0;
+        completedGathered = 0;
+        for (StoredTrip st : activeSession.trips) {
+            Trip t = SessionMapper.toTrip(st);
+            FrozenItemValuer frozen = new FrozenItemValuer(SessionMapper.unitPrices(st));
+            completedNet += t.netProfit(frozen);
+            completedXp += t.totalXp();
+            completedGathered += t.gatheredKeptValue(frozen);
+        }
+    }
+
     public void renameActiveSession(String name) {
         if (activeSession == null) {
             return;
@@ -420,7 +516,7 @@ public final class TrackingService {
             gathered += cachedSnapshot.gatheredGp;
             tripCount += 1;
         }
-        long wallClock = clock.nowMillis() - activeSession.startMillis;
+        long wallClock = clock.nowMillis() - activeSession.startMillis - activeSession.pausedMillis;
         long gpPerHour = wallClock <= 0 ? 0 : net * MILLIS_PER_HOUR / wallClock;
         return new SessionSnapshot(tripCount, net, xp, gpPerHour, gathered);
     }
