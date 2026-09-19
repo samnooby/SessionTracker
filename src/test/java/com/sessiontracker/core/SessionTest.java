@@ -73,4 +73,14 @@ public class SessionTest {
         assertEquals("Zulrah", session.category());
         assertEquals("alt grind", session.name());
     }
+
+    @Test
+    public void wallClockExcludesPausedTime() {
+        Trip a = tripWithProfitAndXp("a", 0, 600_000, 100, 0);
+        Trip b = tripWithProfitAndXp("b", 7_800_000, 8_400_000, 200, 0); // resumed two hours later
+        Session session = new Session("s1", "acct", "Vorkath", "evening", Arrays.asList(a, b),
+                7_200_000);
+        assertEquals(1_200_000, session.wallClockMillis()); // 10 + 10 minutes, gap excluded
+        assertEquals(900, session.gpPerHour(oneGp));         // 300 gp over 20 minutes
+    }
 }

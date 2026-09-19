@@ -867,4 +867,133 @@ public class TrackingServiceTest {
         service.onKill("Vorkath", drop);
         assertEquals(2, service.currentSnapshot().get().kills);
     }
+
+    // ----- resume and delete -----
+
+    @Test
+    public void resumingASessionContinuesItsTotalsAndExcludesTheGap() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+
+        // Evening one: a single 100gp trip over an hour.
+        service.startSession();
+        String sessionId = service.activeSessionId();
+        Map<Integer, Integer> drop = new HashMap<>();
+        drop.put(560, 100);
+        service.onKill("Vorkath", drop);
+        carried.carried.put(560, 100);
+        service.markCarriedDirty();
+        clock.now = 3_600_000L;
+        service.onTick();
+        service.endSession();
+
+        // Two hours later, pick it back up and add another 100gp trip over an hour.
+        clock.now = 3 * 3_600_000L;
+        service.resumeSession(sessionId);
+        assertEquals(sessionId, service.activeSessionId());
+        assertEquals(2, service.currentSessionSnapshot().get().tripCount);
+        assertEquals(100L, service.currentSessionSnapshot().get().netProfit);
+
+        service.onKill("Vorkath", drop);
+        carried.carried.put(560, 200);
+        service.markCarriedDirty();
+        clock.now = 4 * 3_600_000L;
+        service.onTick();
+        SessionSnapshot snap = service.currentSessionSnapshot().get();
+        assertEquals(200L, snap.netProfit);
+        assertEquals(100L, snap.gpPerHour); // 200gp over the two active hours, not four
+
+        service.endSession();
+        List<StoredSession> stored = store.load("acct-A");
+        assertEquals(1, stored.size());
+        assertEquals(2, stored.get(0).trips.size());
+        assertEquals(2 * 3_600_000L, stored.get(0).pausedMillis);
+    }
+
+    @Test
+    public void resumingTheLastTripMergesItAndReconcilesLootLeftOnTheGround() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+        service.startSession();
+
+        Map<Integer, Integer> drop = new HashMap<>();
+        drop.put(560, 100);
+        service.onKill("Vorkath", drop);
+        carried.carried.put(560, 60);          // took 60, left 40 on the ground
+        service.markCarriedDirty();
+        clock.now = 60_000;
+        service.onTick();
+        service.onBankOpened(true);            // the bank ends the trip
+        service.onBankClosed();
+        assertEquals(2, service.currentSessionSnapshot().get().tripCount);
+
+        service.resumeLastTrip();
+        TripSnapshot snap = service.currentSnapshot().get();
+        assertEquals(1, snap.tripNumber);
+        assertEquals(1, snap.kills);
+        assertEquals(60, snap.pickedGp);
+        assertEquals(40, snap.groundGp);
+        assertEquals(1, service.currentSessionSnapshot().get().tripCount);
+
+        carried.carried.put(560, 100);         // went back for the rest
+        service.markCarriedDirty();
+        clock.now = 120_000;
+        service.onTick();
+        snap = service.currentSnapshot().get();
+        assertEquals(100, snap.pickedGp);
+        assertEquals(0, snap.groundGp);
+        assertEquals(120_000, snap.durationMillis); // the original start is kept
+
+        service.endSession();
+        StoredSession stored = store.load("acct-A").get(0);
+        assertEquals(1, stored.trips.size());
+        assertEquals(Integer.valueOf(100), stored.trips.get(0).pickedUp.get("item:560"));
+    }
+
+    @Test
+    public void deletingACompletedTripRecomputesTheSessionTotals() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+        service.startSession();
+
+        Map<Integer, Integer> drop = new HashMap<>();
+        drop.put(560, 100);
+        service.onKill("Vorkath", drop);
+        carried.carried.put(560, 100);
+        service.markCarriedDirty();
+        clock.now = 60_000;
+        service.onTick();
+        service.onBankOpened(true);
+        service.onBankClosed();
+        String firstTripId = store.load("acct-A").get(0).trips.get(0).id;
+
+        service.onKill("Vorkath", drop);
+        carried.carried.put(560, 150);
+        service.markCarriedDirty();
+        clock.now = 120_000;
+        service.onTick();
+        service.onBankOpened(true);
+        service.onBankClosed();
+        assertEquals(3, service.currentSessionSnapshot().get().tripCount);
+        assertEquals(150L, service.currentSessionSnapshot().get().netProfit);
+
+        service.deleteCompletedTrip(firstTripId);
+
+        SessionSnapshot snap = service.currentSessionSnapshot().get();
+        assertEquals(2, snap.tripCount);
+        assertEquals(50L, snap.netProfit);
+        assertEquals(1, store.load("acct-A").get(0).trips.size());
+
+        // Deleting the last completed trip drops the file; the session itself stays active.
+        service.deleteCompletedTrip(store.load("acct-A").get(0).trips.get(0).id);
+        assertTrue(store.load("acct-A").isEmpty());
+        assertTrue(service.isTracking());
+        assertEquals(0L, service.currentSessionSnapshot().get().netProfit);
+    }
 }

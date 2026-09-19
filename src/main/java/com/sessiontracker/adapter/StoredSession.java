@@ -10,5 +10,7 @@ public final class StoredSession {
     public String name;
     public long startMillis;
     public long endMillis;
+    /** Time between this session ending and being resumed, excluded from its wall clock. */
+    public long pausedMillis;
     public List<StoredTrip> trips;
 }

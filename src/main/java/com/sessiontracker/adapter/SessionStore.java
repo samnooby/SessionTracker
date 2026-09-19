@@ -73,6 +73,19 @@ public final class SessionStore {
         return new ArrayList<>(cached(accountHash));
     }
 
+    /**
+     * An independent copy of one session, or null if there is none: safe to take over as the
+     * live active session and mutate on the game thread while the panels keep reading the cache.
+     */
+    public synchronized StoredSession copyOf(String accountHash, String sessionId) {
+        for (StoredSession s : cached(accountHash)) {
+            if (s.id.equals(sessionId)) {
+                return gson.fromJson(gson.toJson(s), StoredSession.class);
+            }
+        }
+        return null;
+    }
+
     private List<StoredSession> cached(String accountHash) {
         return cache.computeIfAbsent(accountHash, this::readFromDisk);
     }

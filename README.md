@@ -35,8 +35,13 @@ when you log in — turn off **Auto-start tracking on login** in the plugin sett
 rather start each session yourself with the **Start tracking** button. Stopping tracking by
 hand stays stopped until your next login. The panel has three tabs:
 
-- **Now** — your current trip and session, updating live.
-- **Sessions** — past sessions with expandable summaries.
+- **Now** — your current trip and session, updating live. **Resume last trip** reopens the
+  trip that just ended and folds the current one into it, for when the bank split a trip you
+  meant to continue.
+- **Sessions** — past sessions with expandable summaries. **Resume session** picks a finished
+  session back up so new trips are added to it, with the time since it ended left out of its
+  GP/hr. Trips and sessions can be deleted from here, including trips of the running session;
+  every total and average is recomputed from what remains.
 - **Stats** — per-category XP and GP averages.
 
 Session history is stored locally under your RuneLite directory

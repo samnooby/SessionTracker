@@ -384,6 +384,36 @@ public class SessionTrackerPluginTest {
         assertNull(trip.suppliesUsed.get(key(SAPPHIRE)));
     }
 
+    @Test
+    public void resumeLastTripAfterBankingMergesTheSplitTrip() throws Exception {
+        login();
+        inventoryItems = items(new Item(SHARK, 5));
+        tick();
+        kill("Vorkath", new ItemStack(COINS, 1_000));
+        inventoryBecomes(new Item(SHARK, 5), new Item(COINS, 1_000));
+        tick();
+        openBank(); // ends trip 1
+        closeBank();
+        tick();
+        flushEdt();
+
+        SessionTrackerPanel panel = panel();
+        assertTrue(button(panel, "Resume last trip").isEnabled());
+        click(button(panel, "Resume last trip"));
+        tick();
+        flushEdt();
+        assertFalse(button(panel, "Resume last trip").isEnabled()); // nothing completed any more
+
+        kill("Vorkath", new ItemStack(COINS, 500));
+        inventoryBecomes(new Item(SHARK, 5), new Item(COINS, 1_500));
+        tick();
+        logout();
+
+        StoredTrip trip = onlyTrip();
+        assertEquals(Integer.valueOf(2), trip.kills.get("Vorkath"));
+        assertEquals(Integer.valueOf(1_500), trip.pickedUp.get(key(COINS)));
+    }
+
     // ----- event helpers -----
 
     private void login() {

@@ -36,6 +36,30 @@ public final class TripLedger {
 
     private Map<ItemKey, Integer> carried = null;
 
+    /**
+     * A ledger that continues a completed trip: everything the trip recorded is restored, and
+     * its loot still on the ground goes back into the ground pool so a later pickup reconciles
+     * as loot. The carried baseline is left unset; call {@link #rebaseline(Map)} with the
+     * current inventory before the next tick.
+     */
+    public static TripLedger resuming(Trip trip) {
+        TripLedger ledger = new TripLedger();
+        ledger.absorb(trip);
+        return ledger;
+    }
+
+    /** Add everything {@code trip} recorded to this ledger (used to merge a split trip back). */
+    public void absorb(Trip trip) {
+        trip.kills().forEach((npc, n) -> kills.merge(npc, n, Integer::sum));
+        trip.dropped().forEach((k, n) -> dropped.merge(k, n, Integer::sum));
+        trip.pickedUp().forEach((k, n) -> pickedUp.merge(k, n, Integer::sum));
+        trip.missed().forEach((k, n) -> groundPool.merge(k, n, Integer::sum));
+        trip.suppliesUsed().forEach((k, n) -> suppliesUsed.merge(k, n, Integer::sum));
+        trip.gathered().forEach((k, n) -> gathered.merge(k, n, Integer::sum));
+        trip.consumedLoot().forEach((k, n) -> consumedLoot.merge(k, n, Integer::sum));
+        trip.xpGained().forEach((skill, n) -> xp.merge(skill, n, Long::sum));
+    }
+
     public void recordKill(String npcName, Map<ItemKey, Integer> drops) {
         kills.merge(npcName, 1, Integer::sum);
         for (Map.Entry<ItemKey, Integer> e : drops.entrySet()) {

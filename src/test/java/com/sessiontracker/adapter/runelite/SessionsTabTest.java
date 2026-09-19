@@ -17,10 +17,14 @@ import static com.sessiontracker.adapter.runelite.Swing.press;
 import static com.sessiontracker.adapter.runelite.Swing.texts;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.google.gson.Gson;
 import com.sessiontracker.adapter.SessionHistory;
 import com.sessiontracker.adapter.SessionStore;
+import com.sessiontracker.adapter.TrackingService;
 import java.nio.file.Files;
 import java.util.Collections;
 import java.util.List;
@@ -139,5 +143,32 @@ public class SessionsTabTest {
         assertEquals("Bird night", edited.name);
         assertEquals("Vorkath (ranged)", edited.category);
         assertHasText(tab, "Bird night");
+    }
+
+    @Test
+    public void finishedSessionsOfferResumeWhileLoggedIn() throws Exception {
+        TrackingService service = mock(TrackingService.class);
+        when(service.activeSessionId()).thenReturn("oaks"); // the woodcutting session is running
+        onEdt(() -> tab.setContext(service, history));
+        flushEdt();
+
+        press(label(tab, "Vorkath"));
+        flushEdt();
+        click(button(tab, "Resume session"));
+        flushEdt();
+        verify(service).resumeSession("vork");
+
+        // The running session itself cannot be resumed.
+        press(label(tab, "Evening chop"));
+        flushEdt();
+        assertNoText(tab, "Resume session");
+    }
+
+    @Test
+    public void resumeIsNotOfferedWhenLoggedOut() throws Exception {
+        show(); // no service
+        press(label(tab, "Vorkath"));
+        flushEdt();
+        assertNoText(tab, "Resume session");
     }
 }
