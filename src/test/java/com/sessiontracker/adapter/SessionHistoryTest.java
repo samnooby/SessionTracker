@@ -601,7 +601,25 @@ public class SessionHistoryTest {
 
         assertEquals("Prayer potion", avg.label);
         assertTrue(avg.isPotion);
+        assertEquals(Integer.valueOf(2434), avg.iconItemId);
         assertEquals(4, avg.dosesPerPotion);
+    }
+
+    @Test
+    public void itemAverageCarriesTheIconItemId() throws Exception {
+        Path root = Files.createTempDirectory("grt");
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
+        ItemKey coins = ItemKey.item(560);
+        Map<ItemKey, Long> price = new HashMap<>();
+        price.put(coins, 1L);
+        save(store, "acct", "s", "Vorkath", "", 0, 3_600_000L,
+                Arrays.asList(trip("t1", 0, 3_600_000L, 1, qty(coins, 100),
+                        new HashMap<>(), new HashMap<>(), price)));
+
+        SessionHistory history = new SessionHistory(store, "acct", names);
+        SessionHistory.ItemAverage avg = history.categoryDetail("Vorkath").pickedAverages.get(0);
+
+        assertEquals(Integer.valueOf(560), avg.iconItemId);
     }
 
     @Test

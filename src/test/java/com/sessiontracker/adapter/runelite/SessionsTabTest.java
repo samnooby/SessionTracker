@@ -45,7 +45,7 @@ public class SessionsTabTest {
     public void setUp() throws Exception {
         store = new SessionStore(Files.createTempDirectory("sessions-tab-test"), new Gson());
         history = new SessionHistory(store, "42", Fixtures::itemName);
-        tab = new SessionsTab(Swing.inlineClientThread(), Collections.emptyMap(), (label, itemId) -> { });
+        tab = new SessionsTab(Swing.inlineClientThread(), Collections.emptyMap(), new RecordingIcons(false));
 
         // Two 30-minute Vorkath trips an hour apart end to end; a shorter, older woodcutting session.
         store.save(session("vork", "Vorkath", "", START,
@@ -122,6 +122,21 @@ public class SessionsTabTest {
         click(button(tab, "Back"));
         flushEdt();
         assertHasText(tab, "Evening chop");
+    }
+
+    @Test
+    public void tripDetailDrawsItemIconsWithTheQuantityInsteadOfTextRows() throws Exception {
+        RecordingIcons icons = new RecordingIcons(true);
+        tab = new SessionsTab(Swing.inlineClientThread(), Collections.emptyMap(), icons);
+        show();
+        press(label(tab, "Vorkath"));
+        flushEdt();
+        press(label(tab, "Trip 1 · 30m · 5 kills · "));
+        flushEdt();
+
+        assertEquals("100K", icons.quantityOn(COINS));
+        assertNoText(tab, "Coins ×100000");
+        Swing.assertHasTooltip(tab, "Coins");
     }
 
     @Test

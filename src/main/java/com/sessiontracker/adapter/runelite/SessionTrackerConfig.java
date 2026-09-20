@@ -59,7 +59,9 @@ public interface SessionTrackerConfig extends Config {
     @ConfigItem(
         keyName = "showItemIcons",
         name = "Show item icons",
-        description = "Show item icons beside loot/supply rows in the Sessions trip detail"
+        description = "Show loot and supplies as a grid of item icons with the count in the "
+                + "corner, like your inventory, instead of rows of names. Hover an icon for the "
+                + "name, count and value."
     )
     default boolean showItemIcons() {
         return true;

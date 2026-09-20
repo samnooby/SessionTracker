@@ -3,6 +3,7 @@ package com.sessiontracker.adapter.runelite;
 import com.sessiontracker.adapter.DurationFormat;
 import com.sessiontracker.adapter.GpFormat;
 import com.sessiontracker.adapter.SessionHistory;
+import com.sessiontracker.adapter.StackText;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
@@ -28,6 +29,7 @@ final class StatsTab extends JPanel {
     private static final String DETAIL = "detail";
 
     private final ClientThread clientThread;
+    private final ItemIconProvider itemIcons;
     private final CardLayout cards = new CardLayout();
     private final JPanel root = new JPanel();
     private final JPanel cardsBody = new JPanel();
@@ -35,8 +37,9 @@ final class StatsTab extends JPanel {
 
     private SessionHistory history;
 
-    StatsTab(ClientThread clientThread) {
+    StatsTab(ClientThread clientThread, ItemIconProvider itemIcons) {
         this.clientThread = clientThread;
+        this.itemIcons = itemIcons;
         setBackground(Styles.PANEL);
         setLayout(new BorderLayout());
         root.setLayout(cards);
@@ -285,6 +288,8 @@ final class StatsTab extends JPanel {
             JLabel none = Styles.keyLabel("None");
             none.setAlignmentX(Component.LEFT_ALIGNMENT);
             content.add(none);
+        } else if (itemIcons.enabled()) {
+            content.add(iconGrid(items));
         } else {
             JPanel g = grid();
             for (SessionHistory.ItemAverage a : items) {
@@ -330,6 +335,24 @@ final class StatsTab extends JPanel {
         detailBody.add(Box.createVerticalStrut(4));
         detailBody.add(headerRow);
         detailBody.add(content);
+    }
+
+    /** Averages as an inventory-style grid; the count keeps its decimal, since that is the point. */
+    private JPanel iconGrid(List<SessionHistory.ItemAverage> items) {
+        JPanel grid = Styles.iconGrid();
+        for (SessionHistory.ItemAverage a : items) {
+            String qty = StackText.average(a.avgQtyPerTrip);
+            String tip = Styles.itemCellTooltip(a.label, qty, a.avgQtyPerTrip, a.avgGpPerTrip,
+                    a.isPotion, a.dosesPerPotion);
+            if (a.iconItemId == null) {
+                grid.add(Styles.textChip(a.label + "  " + qty, tip));
+            } else {
+                JLabel cell = Styles.iconCell(tip);
+                itemIcons.apply(cell, a.iconItemId, qty);
+                grid.add(cell);
+            }
+        }
+        return grid;
     }
 
     private static JPanel grid() {

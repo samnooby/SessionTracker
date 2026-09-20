@@ -23,7 +23,7 @@ public final class SessionTrackerPanel extends PluginPanel implements PanelView 
                                ItemIconProvider itemIcons) {
         this.nowTab = new NowTab(clientThread, skillIcons);
         this.sessionsTab = new SessionsTab(clientThread, skillIcons, itemIcons);
-        this.statsTab = new StatsTab(clientThread);
+        this.statsTab = new StatsTab(clientThread, itemIcons);
         setLayout(new BorderLayout());
         tabs.addTab("Now", nowTab);
         tabs.addTab("Sessions", sessionsTab);
