@@ -9,3 +9,6 @@ jagex.env
 
 # Internal planning/design docs (not for the published plugin)
 docs/superpowers/
+
+# IDE (VS Code / Eclipse Java tooling) build output; Gradle uses build/
+bin/
