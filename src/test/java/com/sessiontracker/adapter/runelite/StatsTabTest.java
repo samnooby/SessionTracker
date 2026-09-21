@@ -15,6 +15,7 @@ import static com.sessiontracker.adapter.runelite.Swing.label;
 import static com.sessiontracker.adapter.runelite.Swing.onEdt;
 import static com.sessiontracker.adapter.runelite.Swing.press;
 import static com.sessiontracker.adapter.runelite.Swing.texts;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.google.gson.Gson;
@@ -37,7 +38,7 @@ public class StatsTabTest {
     public void setUp() throws Exception {
         SessionStore store = new SessionStore(Files.createTempDirectory("stats-tab-test"), new Gson());
         history = new SessionHistory(store, "42", Fixtures::itemName);
-        tab = new StatsTab(Swing.inlineClientThread());
+        tab = new StatsTab(Swing.inlineClientThread(), new RecordingIcons(false));
 
         // Vorkath: 150K over one hour of wall clock, 2 sharks per trip. Oak logs: 2K over 30 minutes.
         store.save(session("vork", "Vorkath", "", START,
@@ -69,6 +70,19 @@ public class StatsTabTest {
         assertHasText(tab, "1 session · 1 trip");
         assertHasText(tab, "148.0K"); // (150,000 - 4 × 500) gp over one hour
         assertHasText(tab, "4.0K");   // 2,000 gp over half an hour
+    }
+
+    @Test
+    public void averageIconsKeepTheDecimalSoTwoAndAHalfSharksIsVisible() throws Exception {
+        RecordingIcons icons = new RecordingIcons(true);
+        tab = new StatsTab(Swing.inlineClientThread(), icons);
+        show();
+
+        press(label(tab, "Vorkath"));
+        flushEdt();
+
+        assertEquals("2.0", icons.quantityOn(SHARK));
+        assertEquals("75000", icons.quantityOn(COINS));
     }
 
     @Test

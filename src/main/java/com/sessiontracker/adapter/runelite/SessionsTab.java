@@ -4,6 +4,7 @@ import com.sessiontracker.adapter.DurationFormat;
 import com.sessiontracker.adapter.GpFormat;
 import com.sessiontracker.adapter.NpcKills;
 import com.sessiontracker.adapter.SessionHistory;
+import com.sessiontracker.adapter.StackText;
 import com.sessiontracker.adapter.SkillXp;
 import com.sessiontracker.adapter.TrackingService;
 import java.awt.BorderLayout;
@@ -464,6 +465,8 @@ final class SessionsTab extends JPanel {
             JLabel none = Styles.keyLabel("None");
             none.setAlignmentX(Component.LEFT_ALIGNMENT);
             card.add(none);
+        } else if (itemIcons.enabled()) {
+            card.add(iconGrid(lines));
         } else {
             JPanel grid = new JPanel(new GridLayout(0, 2, 0, 3));
             grid.setBackground(Styles.CARD);
@@ -471,9 +474,6 @@ final class SessionsTab extends JPanel {
             for (SessionHistory.ItemLine l : lines) {
                 JLabel k = Styles.keyLabel(l.label + " ×" + l.quantity);
                 k.setToolTipText(Styles.itemTooltip(l.label, l.quantity, l.isPotion, l.dosesPerPotion));
-                if (l.iconItemId != null) {
-                    itemIcons.apply(k, l.iconItemId);
-                }
                 grid.add(k);
                 JLabel v = Styles.valueLabel(valueColor);
                 v.setText(GpFormat.format(l.gpValue));
@@ -483,6 +483,24 @@ final class SessionsTab extends JPanel {
             card.add(grid);
         }
         detailBody.add(card);
+    }
+
+    /** Item lines as an inventory-style grid: sprite plus count, with the detail in the tooltip. */
+    private JPanel iconGrid(List<SessionHistory.ItemLine> lines) {
+        JPanel grid = Styles.iconGrid();
+        for (SessionHistory.ItemLine l : lines) {
+            String qty = StackText.count(l.quantity);
+            String tip = Styles.itemCellTooltip(l.label, qty, l.quantity, l.gpValue,
+                    l.isPotion, l.dosesPerPotion);
+            if (l.iconItemId == null) {
+                grid.add(Styles.textChip(l.label + " ×" + qty, tip));
+            } else {
+                JLabel cell = Styles.iconCell(tip);
+                itemIcons.apply(cell, l.iconItemId, qty);
+                grid.add(cell);
+            }
+        }
+        return grid;
     }
 
     private JPanel sessionSummaryCard(SessionHistory.SessionSummary s) {

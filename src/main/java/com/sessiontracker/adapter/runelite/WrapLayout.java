@@ -35,6 +35,12 @@ final class WrapLayout extends FlowLayout {
         synchronized (target.getTreeLock()) {
             int targetWidth = target.getSize().width;
             if (targetWidth == 0) {
+                // The enclosing BoxLayout asks how tall we want to be before we have been given
+                // a width. Answering as if the row were unbounded reports a single row, and the
+                // rows that do wrap are then clipped, so measure against the space we will get.
+                targetWidth = availableWidth(target.getParent());
+            }
+            if (targetWidth == 0) {
                 targetWidth = Integer.MAX_VALUE;
             }
             int hgap = getHgap();
@@ -74,6 +80,18 @@ final class WrapLayout extends FlowLayout {
             }
             return dim;
         }
+    }
+
+    /** The content width of the nearest ancestor that has been sized, or 0 if none has. */
+    private static int availableWidth(Container parent) {
+        for (Container c = parent; c != null; c = c.getParent()) {
+            int width = c.getSize().width;
+            if (width > 0) {
+                Insets insets = c.getInsets();
+                return Math.max(0, width - insets.left - insets.right);
+            }
+        }
+        return 0;
     }
 
     private void addRow(Dimension dim, int rowWidth, int rowHeight, int vgap) {

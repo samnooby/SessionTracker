@@ -20,6 +20,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
 import javax.swing.border.EmptyBorder;
+import com.sessiontracker.adapter.GpFormat;
 import com.sessiontracker.adapter.PotionFormat;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
@@ -29,6 +30,10 @@ final class Styles {
 
     private Styles() {
     }
+
+    /** A game item sprite is 36x32; the cell adds a little breathing room around it. */
+    static final int ICON_CELL_W = 38;
+    static final int ICON_CELL_H = 34;
 
     static final Color PANEL = ColorScheme.DARK_GRAY_COLOR;
     static final Color CARD = new Color(0x36, 0x36, 0x36);
@@ -219,6 +224,52 @@ final class Styles {
     }
 
     /** Full-label tooltip; for potions adds a dose→potion breakdown line. {@code doses} may be fractional. */
+    /** The inventory-style grid item icons flow into, wrapping inside the narrow panel. */
+    static JPanel iconGrid() {
+        JPanel g = new JPanel(new WrapLayout(java.awt.FlowLayout.LEFT, 2, 2)) {
+            @Override
+            public Dimension getMaximumSize() {
+                return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
+            }
+        };
+        g.setBackground(CARD);
+        g.setAlignmentX(Component.LEFT_ALIGNMENT);
+        return g;
+    }
+
+    /**
+     * An empty cell sized to a game item sprite. It keeps its slot in the grid while the icon
+     * loads asynchronously, so the layout doesn't jump as images arrive.
+     */
+    static JLabel iconCell(String tooltip) {
+        JLabel l = new JLabel();
+        l.setPreferredSize(new Dimension(ICON_CELL_W, ICON_CELL_H));
+        l.setToolTipText(tooltip);
+        return l;
+    }
+
+    /** Fallback for an item with no resolvable sprite: its name and count, in the same flow. */
+    static JLabel textChip(String text, String tooltip) {
+        JLabel l = new JLabel(text);
+        l.setFont(FontManager.getRunescapeSmallFont());
+        l.setForeground(SUBTEXT);
+        l.setBorder(new EmptyBorder(2, 4, 2, 4));
+        l.setToolTipText(tooltip);
+        return l;
+    }
+
+    /** An icon cell's tooltip: the name, the quantity (with potions for doses), and the value. */
+    static String itemCellTooltip(String label, String quantityText, double quantity, long gpValue,
+                                  boolean isPotion, int dosesPerPotion) {
+        StringBuilder sb = new StringBuilder("<html>").append(escapeHtml(label));
+        sb.append("<br>×").append(quantityText);
+        if (isPotion) {
+            sb.append(" ≈ ").append(PotionFormat.potions(quantity, dosesPerPotion));
+        }
+        sb.append("<br>").append(GpFormat.format(gpValue));
+        return sb.append("</html>").toString();
+    }
+
     static String itemTooltip(String label, double doses, boolean isPotion, int dosesPerPotion) {
         if (!isPotion) {
             return label;

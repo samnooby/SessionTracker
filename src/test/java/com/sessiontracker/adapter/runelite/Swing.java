@@ -76,6 +76,39 @@ final class Swing {
         }
     }
 
+    /** Every tooltip in the visible part of the tree, in order. */
+    static List<String> tooltips(Component root) {
+        List<String> out = new ArrayList<>();
+        collectTooltips(root, out);
+        return out;
+    }
+
+    private static void collectTooltips(Component c, List<String> out) {
+        if (!c.isVisible()) {
+            return;
+        }
+        if (c instanceof javax.swing.JComponent) {
+            String tip = ((javax.swing.JComponent) c).getToolTipText();
+            if (tip != null && !tip.isEmpty()) {
+                out.add(tip);
+            }
+        }
+        if (c instanceof Container) {
+            for (Component child : ((Container) c).getComponents()) {
+                collectTooltips(child, out);
+            }
+        }
+    }
+
+    static void assertHasTooltip(Component root, String needle) {
+        for (String t : tooltips(root)) {
+            if (t.contains(needle)) {
+                return;
+            }
+        }
+        fail("Expected a tooltip containing \"" + needle + "\" but they were " + tooltips(root));
+    }
+
     static boolean hasText(Component root, String needle) {
         for (String t : texts(root)) {
             if (t.contains(needle)) {
