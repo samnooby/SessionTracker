@@ -57,6 +57,17 @@ public interface SessionTrackerConfig extends Config {
     }
 
     @ConfigItem(
+        keyName = "trackOpenBags",
+        name = "Track open storage bags",
+        description = "Count what an open herb sack, gem bag, coal bag, fish barrel or log basket "
+                + "collects as you gather it, read from the game's own chat messages. Turn this "
+                + "off if a game update ever makes the counts look wrong."
+    )
+    default boolean trackOpenBags() {
+        return true;
+    }
+
+    @ConfigItem(
         keyName = "showItemIcons",
         name = "Show item icons",
         description = "Show loot and supplies as a grid of item icons with the count in the "

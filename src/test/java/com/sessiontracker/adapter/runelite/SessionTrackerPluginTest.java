@@ -76,6 +76,9 @@ public class SessionTrackerPluginTest {
 
     private static final int BONES = 526;
     private static final int SAPPHIRE = 1607;
+    private static final int COAL = net.runelite.api.gameval.ItemID.COAL;
+    private static final int COAL_BAG_OPEN = net.runelite.api.gameval.ItemID.COAL_BAG_OPEN;
+    private static final int COAL_BAG_CLOSED = net.runelite.api.gameval.ItemID.COAL_BAG;
     private static final int LOOTING_BAG_CONTAINER = net.runelite.api.gameval.InventoryID.LOOTING_BAG;
     private static final String ACCOUNT = "42";
 
@@ -116,6 +119,7 @@ public class SessionTrackerPluginTest {
         when(config.nameAfterFirstKill()).thenReturn(true);
         when(config.nameAfterFirstGather()).thenReturn(true);
         when(config.showItemIcons()).thenReturn(false);
+        when(config.trackOpenBags()).thenReturn(true);
 
         when(client.getGameState()).thenReturn(GameState.LOGIN_SCREEN);
         when(client.getAccountHash()).thenReturn(42L);
@@ -434,6 +438,12 @@ public class SessionTrackerPluginTest {
         plugin.onGameTick(new GameTick());
     }
 
+    /** The game prints a gather line, as it does when an open container swallows something. */
+    private void chatMessage(String message) {
+        plugin.onChatMessage(new net.runelite.api.events.ChatMessage(
+                null, net.runelite.api.ChatMessageType.SPAM, "", message, "", 0));
+    }
+
     private static Item[] items(Item... items) {
         return items;
     }
@@ -490,6 +500,96 @@ public class SessionTrackerPluginTest {
 
     private void closeWidget(int groupId) {
         plugin.onWidgetClosed(new WidgetClosed(groupId, 0, false));
+    }
+
+
+    @Test
+    public void coalMinedStraightIntoAnOpenCoalBagIsCountedWhenItHappens() {
+        priceItem(COAL, 100);
+        priceItem(COAL_BAG_OPEN, 0);
+        priceItem(COAL_BAG_CLOSED, 0);
+        login();
+        inventoryBecomes(new Item(COAL_BAG_OPEN, 1));
+        tick();
+
+        // The coal never reaches the inventory; the message is the only evidence.
+        chatMessage("You manage to mine some coal.");
+        tick();
+        logout();
+
+        assertEquals(Integer.valueOf(1), onlyTrip().gathered.get(Fixtures.key(COAL)));
+    }
+
+    @Test
+    public void aFullCoalBagLeavesTheCoalInTheInventoryAndItIsOnlyCountedOnce() {
+        priceItem(COAL, 100);
+        priceItem(COAL_BAG_OPEN, 0);
+        priceItem(COAL_BAG_CLOSED, 0);
+        login();
+        inventoryBecomes(new Item(COAL_BAG_OPEN, 1));
+        tick();
+
+        // The bag is full, so the same message comes with the coal landing in the inventory.
+        chatMessage("You manage to mine some coal.");
+        inventoryBecomes(new Item(COAL_BAG_OPEN, 1), new Item(COAL, 1));
+        tick();
+        logout();
+
+        assertEquals(Integer.valueOf(1), onlyTrip().gathered.get(Fixtures.key(COAL)));
+    }
+
+    @Test
+    public void aWornLogBasketCollectsToo() {
+        priceItem(ItemID.YEW_LOGS, 250);
+        priceItem(ItemID.LOG_BASKET_OPEN, 0);
+        login();
+        // The basket is worn, not carried, which is how forestry baskets are normally used.
+        when(equipment.getItems()).thenReturn(new Item[]{new Item(ItemID.LOG_BASKET_OPEN, 1)});
+        inventoryBecomes();
+        tick();
+
+        chatMessage("You get some yew logs.");
+        tick();
+        logout();
+
+        assertEquals(Integer.valueOf(1), onlyTrip().gathered.get(Fixtures.key(ItemID.YEW_LOGS)));
+    }
+
+    @Test
+    public void aClosedCoalBagCollectsNothingSoTheMessageIsIgnored() {
+        priceItem(COAL, 100);
+        priceItem(COAL_BAG_OPEN, 0);
+        priceItem(COAL_BAG_CLOSED, 0);
+        login();
+        inventoryBecomes(new Item(COAL_BAG_CLOSED, 1));
+        tick();
+
+        chatMessage("You manage to mine some coal.");
+        tick();
+        logout();
+
+        assertTrue(stored().isEmpty());
+    }
+
+    @Test
+    public void emptyingTheBagAfterwardsDoesNotCountTheCoalAgain() {
+        priceItem(COAL, 100);
+        priceItem(COAL_BAG_OPEN, 0);
+        priceItem(COAL_BAG_CLOSED, 0);
+        login();
+        inventoryBecomes(new Item(COAL_BAG_OPEN, 1));
+        tick();
+        chatMessage("You manage to mine some coal.");
+        chatMessage("You manage to mine some coal.");
+        tick();
+
+        // Empty: the two coal move into the inventory, which is a move, not a new gain.
+        clickItemOption(COAL_BAG_OPEN, "Empty");
+        inventoryBecomes(new Item(COAL_BAG_OPEN, 1), new Item(COAL, 2));
+        tick();
+        logout();
+
+        assertEquals(Integer.valueOf(2), onlyTrip().gathered.get(Fixtures.key(COAL)));
     }
 
     // ----- setup / inspection helpers -----

@@ -2,6 +2,7 @@ package com.sessiontracker.adapter.runelite;
 
 import com.sessiontracker.adapter.CarriedSnapshots;
 import com.sessiontracker.adapter.CarriedSnapshotSupplier;
+import com.sessiontracker.adapter.StashLedger;
 import java.util.HashMap;
 import java.util.Map;
 import net.runelite.api.Client;
@@ -21,13 +22,19 @@ public final class ClientCarriedSnapshotSupplier implements CarriedSnapshotSuppl
     private final ChargedItemReader charged;
     private final StoredContainerReader stored;
     private final PlankSackReader planks;
+    private final StashLedger stash;
 
     public ClientCarriedSnapshotSupplier(Client client) {
+        this(client, new StashLedger());
+    }
+
+    public ClientCarriedSnapshotSupplier(Client client, StashLedger stash) {
         this.client = client;
         this.pouch = new RunePouchReader(client);
         this.charged = new ChargedItemReader(client);
         this.stored = new StoredContainerReader(client);
         this.planks = new PlankSackReader(client);
+        this.stash = stash;
     }
 
     @Override
@@ -38,7 +45,8 @@ public final class ClientCarriedSnapshotSupplier implements CarriedSnapshotSuppl
                 pouch.contents(),
                 charged.contents(),
                 stored.contents(),
-                planks.contents());
+                planks.contents(),
+                stash.contents());
     }
 
     private static Map<Integer, Integer> toMap(ItemContainer container) {
