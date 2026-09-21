@@ -24,9 +24,13 @@ modifies the game interface.
 - **Death & bank detection** — optionally accounts for deaths and bank trips so a single
   trip's numbers stay accurate.
 - **Storage containers** — the rune pouch, looting bag, seed box, plank sack and the forestry,
-  huntsman's and tackle kits are read directly, and filling or emptying a herb sack, gem bag,
-  coal bag, fish barrel or log basket is treated as a move, so stashing items is never counted
-  as a cost and unpacking them is never counted as a gain.
+  huntsman's and tackle kits are read directly, so stashing items is never counted as a cost and
+  unpacking them is never counted as a gain.
+- **Open bags that collect for you** — a herb sack, gem bag, coal bag, fish barrel or log basket
+  hides its contents from the client entirely, so what an open one swallows is read from the
+  game's own gather messages and counted in the trip it happened in, rather than whenever you
+  next empty the bag. Turn this off with **Track open storage bags** if a game update ever makes
+  the counts look wrong.
 
 ## Usage
 
@@ -49,10 +53,13 @@ Session history is stored locally under your RuneLite directory
 
 ### Known limitations
 
-- **Open containers that collect automatically.** An open gem bag, coal bag, herb sack, seed box,
-  fish barrel or log basket takes what you gather before it reaches your inventory, and the game
-  does not expose those contents. Nothing is mis-counted, but those gains are not recorded until
-  you empty the container at a bank. Keep it closed and use **Fill** if you want them tracked.
+- **What an open bag collects is inferred, not read.** The game never exposes these contents, so
+  the plugin counts the messages it prints as you gather. Anything it does not print is missed:
+  herbs harvested from a farming patch, coal or gems picked up off the ground into an open bag,
+  and the mining cape's extra ore. Those gains are not recorded at all, including after you empty
+  the bag. Keep the bag closed and use **Fill** if you need them counted exactly.
+- **A manual Fill or Empty resets the count** for that bag, because the plugin can no longer tell
+  what is inside. Nothing is mis-counted; it just starts believing the bag is empty again.
 - **Using an item on a sack** (rather than the sack's own Fill option) is not detected.
 - **Charged items** are only tracked for the Zulrah's-scale weapons (blowpipe, serpentine helm,
   toxic staff).

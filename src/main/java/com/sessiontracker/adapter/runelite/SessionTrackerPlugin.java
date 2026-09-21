@@ -2,6 +2,7 @@ package com.sessiontracker.adapter.runelite;
 
 import com.sessiontracker.adapter.CurrentXpSupplier;
 import com.sessiontracker.adapter.LiveItemValuer;
+import com.sessiontracker.adapter.StashLedger;
 import com.sessiontracker.adapter.TripNamingConfig;
 import com.sessiontracker.adapter.PotionRegistry;
 import com.sessiontracker.adapter.SessionHistory;
@@ -15,6 +16,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.IntFunction;
 import javax.inject.Inject;
@@ -25,7 +27,10 @@ import net.runelite.api.Skill;
 import net.runelite.client.game.SkillIconManager;
 import net.runelite.api.GameState;
 import net.runelite.api.InventoryID;
+import net.runelite.api.Item;
+import net.runelite.api.ItemContainer;
 import net.runelite.api.events.ActorDeath;
+import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemContainerChanged;
@@ -80,6 +85,19 @@ public class SessionTrackerPlugin extends Plugin {
      * sync of each brings its pre-existing contents into carried, which must not read as gathered.
      */
     private final Set<Integer> syncedContainers = new HashSet<>();
+
+    /**
+     * What the opaque containers (herb sack, gem bag, coal bag, fish barrel, log basket) appear to
+     * have swallowed. They expose no contents, so this is inferred from the game's gather messages
+     * and reconciled each tick against what the inventory actually received.
+     */
+    private final StashLedger stash = new StashLedger();
+
+    /** The inventory as it stood at the end of the last tick, to settle this tick's gathers. */
+    private Map<Integer, Integer> lastInventory = new HashMap<>();
+
+    /** A gather message arrived this tick, so the carried snapshot needs rereading. */
+    private boolean stashDirty;
 
     /** Where session JSON is stored. Package-private so tests can point it at a temp directory. */
     Path storeRoot = RuneLite.RUNELITE_DIR.toPath().resolve("sessiontracker");
@@ -144,7 +162,7 @@ public class SessionTrackerPlugin extends Plugin {
         IntFunction<String> names = id -> itemManager.getItemComposition(id).getName();
         service = new TrackingService(
                 new SystemClock(),
-                new ClientCarriedSnapshotSupplier(client),
+                new ClientCarriedSnapshotSupplier(client, stash),
                 names,
                 potions,
                 valuer,
@@ -157,6 +175,8 @@ public class SessionTrackerPlugin extends Plugin {
         panel.setService(service, true, history);
         pendingAutoStart = config.autoStartTracking();
         syncedContainers.clear();
+        stash.clearAll();
+        lastInventory = currentInventory();
     }
 
     /**
@@ -240,9 +260,78 @@ public class SessionTrackerPlugin extends Plugin {
     @Subscribe
     public void onGameTick(GameTick event) {
         consumePendingAutoStart();
+        settleStash();
         if (service != null) {
             service.onTick();
         }
+    }
+
+    /**
+     * Believe this tick's gather messages, minus anything the inventory actually received (which
+     * means the container was too full to take it). Runs before the tracker reads carried, so a
+     * gain lands in the trip it happened in.
+     */
+    private void settleStash() {
+        Map<Integer, Integer> inventory = currentInventory();
+        stash.settle(lastInventory, inventory);
+        lastInventory = inventory;
+        if (stashDirty && service != null) {
+            service.markCarriedDirty();
+            stashDirty = false;
+        }
+    }
+
+    @Subscribe
+    public void onChatMessage(ChatMessage event) {
+        if (service == null) {
+            return;
+        }
+        if (!config.trackOpenBags()) {
+            return;
+        }
+        for (StashBags.Bag bag : StashBags.all()) {
+            if (!carriesOpen(bag)) {
+                continue;
+            }
+            OptionalInt item = bag.match(event.getMessage());
+            if (item.isPresent()) {
+                stash.gathered(bag.name(), item.getAsInt(), 1);
+                stashDirty = true;
+                return;
+            }
+        }
+    }
+
+    /** True if an open form of this container is in the inventory or worn. */
+    private boolean carriesOpen(StashBags.Bag bag) {
+        return hasOpen(client.getItemContainer(InventoryID.INVENTORY), bag)
+                || hasOpen(client.getItemContainer(InventoryID.EQUIPMENT), bag);
+    }
+
+    private static boolean hasOpen(ItemContainer container, StashBags.Bag bag) {
+        if (container == null) {
+            return false;
+        }
+        for (Item item : container.getItems()) {
+            if (bag.isOpen(item.getId())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private Map<Integer, Integer> currentInventory() {
+        Map<Integer, Integer> out = new HashMap<>();
+        ItemContainer container = client.getItemContainer(InventoryID.INVENTORY);
+        if (container == null) {
+            return out;
+        }
+        for (Item item : container.getItems()) {
+            if (item.getId() > 0 && item.getQuantity() > 0) {
+                out.merge(item.getId(), item.getQuantity(), Integer::sum);
+            }
+        }
+        return out;
     }
 
     @Subscribe
@@ -286,6 +375,9 @@ public class SessionTrackerPlugin extends Plugin {
         // Always notify the service so banking inventory changes aren't miscounted; the config
         // only decides whether opening the bank also ends the current trip.
         if (service != null && event.getGroupId() == InterfaceID.BANK) {
+            // Containers are usually emptied here, and the bank rebaselines anyway, so stop
+            // believing anything is inside them rather than carrying a phantom around.
+            stash.clearAll();
             service.onBankOpened(config.bankDetection());
         }
         // Collecting bought/sold offers changes the inventory but isn't loot; suppress it while open.
@@ -314,6 +406,8 @@ public class SessionTrackerPlugin extends Plugin {
         }
         // Filling or emptying a sack/bag/barrel moves items; the client can't see inside these.
         if (event.isItemOp() && StashContainers.isTransfer(event.getItemId(), event.getMenuOption())) {
+            // Whatever we believed was inside is now wrong, and the move itself must not be booked.
+            StashBags.byAnyItemId(event.getItemId()).ifPresent(bag -> stash.clear(bag.name()));
             service.onContainerTransfer();
         }
     }
