@@ -485,6 +485,85 @@ public class SessionTrackerPluginTest {
     }
 
     @Test
+    public void aDepositAnimationLongAfterTheClickIsIgnored() throws Exception {
+        when(config.bankDetection()).thenReturn(false);
+        login();
+        inventoryItems = items(new Item(SHARK, 5));
+        tick();
+        kill("Vorkath");
+
+        when(client.getTickCount()).thenReturn(100);
+        clickObject(DEPOSIT_POOL, "Deposit-runes", "<col=ffff>Deposit Pool");
+        when(client.getTickCount()).thenReturn(100 + QuickDeposits.REACH_TICKS + 1);
+        playAnimation(AnimationID.HUMAN_LEVERDOWN); // never reached it; this is something else
+        inventoryBecomes(new Item(SHARK, 3));
+        tick();
+        logout();
+
+        assertEquals(Integer.valueOf(2), onlyTrip().suppliesUsed.get(key(SHARK)));
+    }
+
+    @Test
+    public void anotherPlayersDepositAnimationDoesNotCount() throws Exception {
+        when(config.bankDetection()).thenReturn(false);
+        login();
+        inventoryItems = items(new Item(SHARK, 5));
+        tick();
+        kill("Vorkath");
+
+        clickObject(DEPOSIT_POOL, "Deposit-runes", "<col=ffff>Deposit Pool");
+        Player someoneElse = mock(Player.class);
+        when(someoneElse.getAnimation()).thenReturn(AnimationID.HUMAN_LEVERDOWN);
+        AnimationChanged event = new AnimationChanged();
+        event.setActor(someoneElse);
+        plugin.onAnimationChanged(event);
+        inventoryBecomes(new Item(SHARK, 3)); // ate while still walking over
+        tick();
+        logout();
+
+        assertEquals(Integer.valueOf(2), onlyTrip().suppliesUsed.get(key(SHARK)));
+    }
+
+    @Test
+    public void openingTheDepositBoxScreenReplacesTheQuickDeposit() throws Exception {
+        when(config.bankDetection()).thenReturn(false);
+        login();
+        inventoryItems = items(new Item(SHARK, 5));
+        tick();
+        kill("Vorkath");
+
+        clickObject(ObjectID.BANK_DEPOSIT_BOX, "Deposit", "<col=ffff>Bank deposit box");
+        openWidget(InterfaceID.DEPOSIT_BOX);
+        inventoryBecomes(new Item(SHARK, 2)); // deposited three through the screen
+        tick();
+        closeWidget(InterfaceID.DEPOSIT_BOX);
+        playAnimation(AnimationID.HUMAN_LEVERDOWN); // a later, unrelated lever pull
+        inventoryBecomes(new Item(SHARK, 1));        // then ate one
+        tick();
+        logout();
+
+        assertEquals(Integer.valueOf(1), onlyTrip().suppliesUsed.get(key(SHARK)));
+    }
+
+    @Test
+    public void talkingToAnNpcAbandonsTheDeposit() throws Exception {
+        when(config.bankDetection()).thenReturn(false);
+        login();
+        inventoryItems = items(new Item(SHARK, 5));
+        tick();
+        kill("Vorkath");
+
+        clickObject(DEPOSIT_POOL, "Deposit-runes", "<col=ffff>Deposit Pool");
+        clickMenu(1, "Talk-to", "<col=ffff00>Apprentice Felix", MenuAction.NPC_FIRST_OPTION);
+        playAnimation(AnimationID.HUMAN_LEVERDOWN);
+        inventoryBecomes(new Item(SHARK, 3));
+        tick();
+        logout();
+
+        assertEquals(Integer.valueOf(2), onlyTrip().suppliesUsed.get(key(SHARK)));
+    }
+
+    @Test
     public void objectsThatDoNotBankStillUseUpWhatGoesIn() throws Exception {
         when(config.bankDetection()).thenReturn(false);
         login();
@@ -677,20 +756,20 @@ public class SessionTrackerPluginTest {
 
     /** The player clicks an option on a game object, such as Deposit-runes on the GOTR pool. */
     private void clickObject(int objectId, String option, String target) {
-        click(objectId, option, target, MenuAction.GAME_OBJECT_FIRST_OPTION);
+        clickMenu(objectId, option, target, MenuAction.GAME_OBJECT_FIRST_OPTION);
     }
 
     /** The player uses an inventory item on a game object, such as a bank deposit box. */
     private void clickUseOn(int itemId, int objectId, String objectName) {
-        click(objectId, "Use", "<col=ff9040>" + itemName(itemId) + "<col=ffffff> -> <col=ffff>" + objectName,
+        clickMenu(objectId, "Use", "<col=ff9040>" + itemName(itemId) + "<col=ffffff> -> <col=ffff>" + objectName,
                 MenuAction.WIDGET_TARGET_ON_GAME_OBJECT);
     }
 
     private void clickWalk() {
-        click(0, "Walk here", "", MenuAction.WALK);
+        clickMenu(0, "Walk here", "", MenuAction.WALK);
     }
 
-    private void click(int identifier, String option, String target, MenuAction action) {
+    private void clickMenu(int identifier, String option, String target, MenuAction action) {
         MenuEntry entry = mock(MenuEntry.class);
         when(entry.getIdentifier()).thenReturn(identifier);
         when(entry.getOption()).thenReturn(option);
