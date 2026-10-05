@@ -17,10 +17,10 @@ public final class LiveItemValuer implements ItemValuer {
     @Override
     public long value(ItemKey key, int quantity) {
         if (!key.isPotion()) {
-            return (long) prices.price(key.itemId()) * quantity;
+            return prices.price(key.itemId()) * quantity;
         }
         return potions.representativeFor(key.potionFamily())
-                .map(rep -> (long) (prices.price(rep.itemId()) / rep.dose()) * quantity)
+                .map(rep -> prices.price(rep.itemId()) / rep.dose() * quantity)
                 .orElse(0L);
     }
 
