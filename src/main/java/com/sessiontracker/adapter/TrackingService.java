@@ -44,7 +44,7 @@ public final class TrackingService {
     private boolean awaitingDeathChoice;
     private boolean bankOpen;
     private boolean geOpen;
-    private boolean depositBoxOpen;
+    private boolean storageOpen;
     // While > 0, a quick deposit (GOTR's deposit pool, an item used on a deposit box) has just
     // happened. The next inventory change that loses items is it: those items went to the bank,
     // so they are stored rather than used.
@@ -126,7 +126,7 @@ public final class TrackingService {
         awaitingDeathChoice = false;
         bankOpen = false;
         geOpen = false;
-        depositBoxOpen = false;
+        storageOpen = false;
         quickDepositTicks = 0;
         containerTransferTicks = 0;
         ledger.updateCarried(normalize(carried.currentCarried()));
@@ -156,8 +156,8 @@ public final class TrackingService {
         }
         if (inventoryDirty) {
             Map<ItemKey, Integer> settled = normalize(carried.currentCarried());
-            if (bankOpen || geOpen || depositBoxOpen || containerTransferTicks > 0) {
-                // Inventory changes while the bank, a deposit box or the Grand Exchange is open
+            if (bankOpen || geOpen || storageOpen || containerTransferTicks > 0) {
+                // Inventory changes while the bank, a storage screen or the Grand Exchange is open
                 // (deposits, withdrawals, collecting bought/sold offers), or right after a
                 // container transfer, move items around rather than consuming or gaining them.
                 ledger.rebaseline(settled);
@@ -284,24 +284,26 @@ public final class TrackingService {
     }
 
     /**
-     * A bank deposit box opened (including GOTR's deposit pool "Deposit items"). Like the GE,
-     * inventory changes while it is open are rebaselined, so what you deposit stays counted as
-     * kept rather than read as used. Unlike the bank, it never ends the trip.
+     * A storage screen opened: a bank deposit box (including GOTR's deposit pool "Deposit items"),
+     * the tool leprechaun, the seed vault, group ironman shared storage or a Chambers of Xeric
+     * storage unit. Like the GE, inventory changes while it is open are rebaselined, so what you
+     * store stays counted as kept rather than read as used, and what you take out is not a gain.
+     * Unlike the bank, it never ends the trip.
      */
-    public void onDepositBoxOpened() {
+    public void onStorageOpened() {
         if (ledger == null || awaitingDeathChoice) {
             return;
         }
-        depositBoxOpen = true;
+        storageOpen = true;
         quickDepositTicks = 0; // the interface handles it; don't carry the window past it
     }
 
-    /** Deposit box closed. Pin the post-deposit inventory as the baseline and resume tracking. */
-    public void onDepositBoxClosed() {
+    /** Storage screen closed. Pin the inventory as the baseline and resume tracking. */
+    public void onStorageClosed() {
         if (ledger == null || awaitingDeathChoice) {
             return;
         }
-        depositBoxOpen = false;
+        storageOpen = false;
         ledger.rebaseline(normalize(carried.currentCarried()));
     }
 

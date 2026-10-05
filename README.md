@@ -33,6 +33,10 @@ modifies the game interface.
   eating. Loot and gathered items (the runes you crafted) stay counted as profit, and deposited
   supplies are not charged. None of these end the trip. If an object is missed, add its name
   under **Extra quick deposit objects** in the plugin settings.
+- **Storage screens** — storing items at the tool leprechaun, the seed vault, group ironman shared
+  storage or a Chambers of Xeric storage unit is not counted as using them, and taking them back
+  out is not counted as a gain. Anything left in a raid's storage when the raid ends is not
+  charged as a supply either.
 - **Open bags that collect for you** — a herb sack, gem bag, coal bag, fish barrel or log basket
   hides its contents from the client entirely, so what an open one swallows is read from the
   game's own gather messages and counted in the trip it happened in, rather than whenever you

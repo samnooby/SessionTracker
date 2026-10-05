@@ -108,6 +108,9 @@ public class SessionTrackerPlugin extends Plugin {
      */
     private int quickDepositClickTick = -1;
 
+    /** Storage screens (see {@link StorageScreens}) currently open. */
+    private final Set<Integer> openStorage = new HashSet<>();
+
     /** Where session JSON is stored. Package-private so tests can point it at a temp directory. */
     Path storeRoot = RuneLite.RUNELITE_DIR.toPath().resolve("sessiontracker");
 
@@ -186,6 +189,7 @@ public class SessionTrackerPlugin extends Plugin {
         syncedContainers.clear();
         stash.clearAll();
         quickDepositClickTick = -1;
+        openStorage.clear();
         lastInventory = currentInventory();
     }
 
@@ -394,10 +398,13 @@ public class SessionTrackerPlugin extends Plugin {
         if (service != null && event.getGroupId() == InterfaceID.GRAND_EXCHANGE) {
             service.onGeOpened();
         }
-        // Depositing isn't using anything up; keep what goes in counted as kept.
-        if (service != null && event.getGroupId() == InterfaceID.DEPOSIT_BOX) {
-            quickDepositClickTick = -1; // the deposit box screen opened instead; it handles itself
-            service.onDepositBoxOpened();
+        // Storing isn't using anything up; keep what goes in counted as kept.
+        if (service != null && StorageScreens.isStorage(event.getGroupId())) {
+            quickDepositClickTick = -1; // a deposit box screen opened instead; it handles itself
+            if (openStorage.isEmpty()) {
+                service.onStorageOpened();
+            }
+            openStorage.add(event.getGroupId());
         }
     }
 
@@ -409,8 +416,9 @@ public class SessionTrackerPlugin extends Plugin {
         if (service != null && event.getGroupId() == InterfaceID.GRAND_EXCHANGE) {
             service.onGeClosed();
         }
-        if (service != null && event.getGroupId() == InterfaceID.DEPOSIT_BOX) {
-            service.onDepositBoxClosed();
+        // Some storage spans two screens (the seed vault); resume once the last one closes.
+        if (service != null && openStorage.remove(event.getGroupId()) && openStorage.isEmpty()) {
+            service.onStorageClosed();
         }
     }
 

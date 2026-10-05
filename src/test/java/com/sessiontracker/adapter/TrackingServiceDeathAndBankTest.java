@@ -310,12 +310,12 @@ public class TrackingServiceDeathAndBankTest {
         service.startSession();
 
         gather(service, carried, clock, 100);
-        service.onDepositBoxOpened();
+        service.onStorageOpened();
         carried.carried.clear();
         service.markCarriedDirty();
         clock.now += 600;
         service.onTick();
-        service.onDepositBoxClosed();
+        service.onStorageClosed();
 
         TripSnapshot snap = service.currentSnapshot().get();
         assertEquals(1, snap.tripNumber);

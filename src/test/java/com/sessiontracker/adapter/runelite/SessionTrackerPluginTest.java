@@ -542,6 +542,59 @@ public class SessionTrackerPluginTest {
     }
 
     @Test
+    public void storingAtTheLeprechaunSeedVaultGroupStorageOrCoxIsNotUsedAndTakingOutIsNotAGain()
+            throws Exception {
+        int[] screens = {
+            net.runelite.api.gameval.InterfaceID.FARMING_TOOLS,
+            net.runelite.api.gameval.InterfaceID.SEED_VAULT,
+            net.runelite.api.gameval.InterfaceID.SHARED_BANK,
+            net.runelite.api.gameval.InterfaceID.RAIDS_STORAGE_PRIVATE,
+            net.runelite.api.gameval.InterfaceID.RAIDS_STORAGE_SHARED,
+        };
+        login();
+        inventoryItems = items(new Item(SHARK, 5));
+        tick();
+        kill("Vorkath");
+        for (int screen : screens) {
+            openWidget(screen);
+            inventoryBecomes(new Item(SHARK, 2));               // stored three
+            tick();
+            inventoryBecomes(new Item(SHARK, 2), new Item(COINS, 1_000)); // took out something else
+            tick();
+            closeWidget(screen);
+            inventoryBecomes(new Item(SHARK, 5));               // reset for the next screen
+            openWidget(screen);
+            tick();
+            closeWidget(screen);
+        }
+        logout();
+
+        StoredTrip trip = onlyTrip();
+        assertNull(trip.suppliesUsed.get(key(SHARK)));
+        assertNull(trip.gathered.get(key(COINS)));
+    }
+
+    @Test
+    public void theSeedVaultStaysStorageUntilBothOfItsScreensClose() throws Exception {
+        login();
+        inventoryItems = items(new Item(SHARK, 5));
+        tick();
+        kill("Vorkath");
+
+        openWidget(net.runelite.api.gameval.InterfaceID.SEED_VAULT);
+        openWidget(net.runelite.api.gameval.InterfaceID.SEED_VAULT_DEPOSIT);
+        closeWidget(net.runelite.api.gameval.InterfaceID.SEED_VAULT_DEPOSIT);
+        inventoryBecomes(new Item(SHARK, 2)); // still storing: the vault itself is open
+        tick();
+        closeWidget(net.runelite.api.gameval.InterfaceID.SEED_VAULT);
+        inventoryBecomes(new Item(SHARK, 1)); // eaten after closing it
+        tick();
+        logout();
+
+        assertEquals(Integer.valueOf(1), onlyTrip().suppliesUsed.get(key(SHARK)));
+    }
+
+    @Test
     public void resumeLastTripAfterBankingMergesTheSplitTrip() throws Exception {
         login();
         inventoryItems = items(new Item(SHARK, 5));
