@@ -45,7 +45,7 @@ public final class TrackingService {
     private boolean bankOpen;
     private boolean geOpen;
     private boolean depositBoxOpen;
-    // While > 0, a quick deposit (e.g. GOTR's deposit pool "Deposit-runes") has been clicked and
+    // While > 0, a quick deposit (GOTR's deposit pool, an item used on a deposit box) was clicked and
     // the player may still be walking to it. The next inventory change that loses items is the
     // deposit: those items went to the bank, so they are stored rather than used.
     private int quickDepositTicks;
@@ -293,6 +293,7 @@ public final class TrackingService {
             return;
         }
         depositBoxOpen = true;
+        quickDepositTicks = 0; // the interface handles it; don't carry the window past it
     }
 
     /** Deposit box closed. Pin the post-deposit inventory as the baseline and resume tracking. */
@@ -305,10 +306,10 @@ public final class TrackingService {
     }
 
     /**
-     * A one-click deposit to the bank was clicked (GOTR's deposit pool "Deposit-runes"). The
-     * player may walk there first, so the next inventory loss within a generous window is taken
-     * as the deposit: those items are stored, not used, so loot and gathered resources (the runes
-     * you crafted) stay counted as profit and nothing deposited is charged as a supply.
+     * A one-click deposit to the bank was clicked (GOTR's deposit pool "Deposit-runes", or an item
+     * used on a deposit box). The player may walk there first, so the next inventory loss within a
+     * generous window is taken as the deposit: whatever left was stored, not used, so loot and
+     * gathered resources stay counted as profit and nothing deposited is charged as a supply.
      */
     public void onQuickDeposit() {
         if (ledger == null || awaitingDeathChoice) {

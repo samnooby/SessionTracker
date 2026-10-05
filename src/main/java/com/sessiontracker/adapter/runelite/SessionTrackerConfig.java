@@ -68,6 +68,18 @@ public interface SessionTrackerConfig extends Config {
     }
 
     @ConfigItem(
+        keyName = "quickDepositObjects",
+        name = "Quick deposit objects",
+        description = "Comma-separated names of objects that send items straight to your bank "
+                + "without opening it (e.g. Deposit-runes at the GOTR Deposit Pool, or using an "
+                + "item on a deposit box). Whatever you deposit through them is stored, not used: "
+                + "loot and gathered items stay counted and supplies are not charged."
+    )
+    default String quickDepositObjects() {
+        return SessionTrackerPlugin.DEFAULT_QUICK_DEPOSIT_OBJECTS;
+    }
+
+    @ConfigItem(
         keyName = "showItemIcons",
         name = "Show item icons",
         description = "Show loot and supplies as a grid of item icons with the count in the "

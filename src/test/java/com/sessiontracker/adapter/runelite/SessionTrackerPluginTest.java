@@ -121,6 +121,7 @@ public class SessionTrackerPluginTest {
         when(config.nameAfterFirstGather()).thenReturn(true);
         when(config.showItemIcons()).thenReturn(false);
         when(config.trackOpenBags()).thenReturn(true);
+        when(config.quickDepositObjects()).thenReturn(SessionTrackerPlugin.DEFAULT_QUICK_DEPOSIT_OBJECTS);
 
         when(client.getGameState()).thenReturn(GameState.LOGIN_SCREEN);
         when(client.getAccountHash()).thenReturn(42L);
@@ -398,7 +399,7 @@ public class SessionTrackerPluginTest {
 
         inventoryBecomes(new Item(SHARK, 5), new Item(NATURE_RUNE, 30)); // crafted at an altar
         tick();
-        clickObjectOption(SessionTrackerPlugin.QUICK_DEPOSIT_OPTION);
+        clickObject("Deposit-runes", "<col=ffff>Deposit Pool");
         tick(); // still walking over to the pool
         inventoryBecomes(new Item(SHARK, 5));                             // runes sent to the bank
         tick();
@@ -408,6 +409,63 @@ public class SessionTrackerPluginTest {
         assertEquals(Integer.valueOf(30), trip.gathered.get(key(NATURE_RUNE)));
         assertNull(trip.consumedLoot.get(key(NATURE_RUNE)));
         assertNull(trip.suppliesUsed.get(key(NATURE_RUNE)));
+    }
+
+    @Test
+    public void suppliesAndLootUsedOnADepositBoxAreStoredNotUsed() throws Exception {
+        when(config.bankDetection()).thenReturn(false);
+        login();
+        inventoryItems = items(new Item(SHARK, 5));
+        tick();
+        kill("Vorkath", new ItemStack(BONES, 1));
+        inventoryBecomes(new Item(SHARK, 5), new Item(BONES, 1)); // picked up the drop
+        tick();
+
+        clickUseOn(BONES, "Bank deposit box");
+        inventoryBecomes(new Item(SHARK, 5));
+        tick();
+        clickUseOn(SHARK, "Bank deposit box");
+        inventoryBecomes();
+        tick();
+        logout();
+
+        StoredTrip trip = onlyTrip();
+        assertEquals(Integer.valueOf(1), trip.pickedUp.get(key(BONES)));
+        assertNull(trip.consumedLoot.get(key(BONES)));
+        assertNull(trip.suppliesUsed.get(key(SHARK)));
+    }
+
+    @Test
+    public void objectsNotInTheQuickDepositListStillUseUpWhatGoesIn() throws Exception {
+        when(config.bankDetection()).thenReturn(false);
+        login();
+        inventoryItems = items(new Item(SHARK, 5));
+        tick();
+        kill("Vorkath");
+
+        clickObject("Deposit", "<col=ffff>Reward pool"); // turned in for points, not banked
+        inventoryBecomes(new Item(SHARK, 3));
+        tick();
+        logout();
+
+        assertEquals(Integer.valueOf(2), onlyTrip().suppliesUsed.get(key(SHARK)));
+    }
+
+    @Test
+    public void quickDepositObjectsCanBeConfigured() throws Exception {
+        when(config.bankDetection()).thenReturn(false);
+        when(config.quickDepositObjects()).thenReturn("Reward pool");
+        login();
+        inventoryItems = items(new Item(SHARK, 5));
+        tick();
+        kill("Vorkath");
+
+        clickObject("Deposit", "<col=ffff>Reward pool");
+        inventoryBecomes(new Item(SHARK, 3));
+        tick();
+        logout();
+
+        assertNull(onlyTrip().suppliesUsed.get(key(SHARK)));
     }
 
     @Test
@@ -513,11 +571,22 @@ public class SessionTrackerPluginTest {
         plugin.onMenuOptionClicked(new MenuOptionClicked(entry));
     }
 
-    /** The player clicks an option on a game object, such as the GOTR deposit pool. */
-    private void clickObjectOption(String option) {
+    /** The player clicks an option on a game object, such as Deposit-runes on the GOTR pool. */
+    private void clickObject(String option, String target) {
         MenuEntry entry = mock(MenuEntry.class);
         when(entry.getOption()).thenReturn(option);
+        when(entry.getTarget()).thenReturn(target);
         when(entry.getType()).thenReturn(net.runelite.api.MenuAction.GAME_OBJECT_FIRST_OPTION);
+        plugin.onMenuOptionClicked(new MenuOptionClicked(entry));
+    }
+
+    /** The player uses an inventory item on a game object, such as a bank deposit box. */
+    private void clickUseOn(int itemId, String objectName) {
+        MenuEntry entry = mock(MenuEntry.class);
+        when(entry.getOption()).thenReturn("Use");
+        when(entry.getTarget()).thenReturn(
+                "<col=ff9040>" + itemName(itemId) + "<col=ffffff> -> <col=ffff>" + objectName);
+        when(entry.getType()).thenReturn(net.runelite.api.MenuAction.WIDGET_TARGET_ON_GAME_OBJECT);
         plugin.onMenuOptionClicked(new MenuOptionClicked(entry));
     }
 

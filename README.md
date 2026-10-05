@@ -26,10 +26,11 @@ modifies the game interface.
 - **Storage containers** — the rune pouch, looting bag, seed box, plank sack and the forestry,
   huntsman's and tackle kits are read directly, so stashing items is never counted as a cost and
   unpacking them is never counted as a gain.
-- **Deposit boxes and the GOTR deposit pool** — items you send to the bank without opening it,
-  through a bank deposit box or Guardians of the Rift's **Deposit-runes**, are stored, not used.
-  The runes you crafted stay counted as profit for the trip, and nothing deposited is charged as
-  a supply. Neither ends the trip.
+- **Quick deposits** — anything you send to the bank without opening it is stored, not used:
+  Guardians of the Rift's **Deposit-runes**, using an item on a bank deposit box or chest, or the
+  deposit box screen itself. Loot and gathered items (the runes you crafted) stay counted as
+  profit, and deposited supplies are not charged. None of these end the trip. Add any other
+  deposit object by name under **Quick deposit objects** in the plugin settings.
 - **Open bags that collect for you** — a herb sack, gem bag, coal bag, fish barrel or log basket
   hides its contents from the client entirely, so what an open one swallows is read from the
   game's own gather messages and counted in the trip it happened in, rather than whenever you

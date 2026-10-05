@@ -54,6 +54,7 @@ import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.util.ImageUtil;
+import net.runelite.client.util.Text;
 
 @PluginDescriptor(
     name = "Session Tracker",
@@ -63,10 +64,11 @@ import net.runelite.client.util.ImageUtil;
 public class SessionTrackerPlugin extends Plugin {
 
     /**
-     * A one-click deposit straight to the bank: Guardians of the Rift's deposit pool. The runes
-     * leave the inventory without any bank interface opening, so they would otherwise read as used.
+     * Objects that deposit straight to the bank without the bank interface opening: GOTR's deposit
+     * pool (Deposit-runes), and deposit boxes and chests when an item is used on them. What leaves
+     * the inventory through them would otherwise read as used.
      */
-    static final String QUICK_DEPOSIT_OPTION = "Deposit-runes";
+    static final String DEFAULT_QUICK_DEPOSIT_OBJECTS = "Bank deposit box, Bank deposit chest, Deposit pool";
 
     @Inject private Client client;
     @Inject private Gson gson;
@@ -415,7 +417,7 @@ public class SessionTrackerPlugin extends Plugin {
         if (service == null) {
             return;
         }
-        if (QUICK_DEPOSIT_OPTION.equals(event.getMenuOption())) {
+        if (isObjectInteraction(event.getMenuAction()) && isQuickDepositObject(event.getMenuTarget())) {
             service.onQuickDeposit();
         } else if (isMoveOrInteraction(event.getMenuAction())) {
             // Walking off or interacting with something else abandons a pending quick deposit.
@@ -432,12 +434,36 @@ public class SessionTrackerPlugin extends Plugin {
         }
     }
 
+    /** True if the clicked target (an object, or "item -> object" for Use) is a quick deposit. */
+    private boolean isQuickDepositObject(String target) {
+        if (target == null) {
+            return false;
+        }
+        String plain = Text.removeTags(target);
+        int arrow = plain.lastIndexOf("->");
+        String object = (arrow >= 0 ? plain.substring(arrow + 2) : plain).trim();
+        String configured = config.quickDepositObjects();
+        if (configured == null) {
+            return false;
+        }
+        for (String name : Text.fromCSV(configured)) {
+            if (!name.isEmpty() && name.equalsIgnoreCase(object)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** An option on a game object, including using an item on one. */
+    private static boolean isObjectInteraction(MenuAction action) {
+        return action != null && action.name().contains("GAME_OBJECT");
+    }
+
     private static boolean isMoveOrInteraction(MenuAction action) {
         if (action == null) {
             return false;
         }
-        String name = action.name();
-        return action == MenuAction.WALK || name.startsWith("GAME_OBJECT_") || name.startsWith("NPC_");
+        return action == MenuAction.WALK || isObjectInteraction(action) || action.name().startsWith("NPC_");
     }
 
     @Subscribe
