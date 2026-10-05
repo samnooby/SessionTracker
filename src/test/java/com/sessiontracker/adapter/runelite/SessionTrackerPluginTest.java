@@ -598,7 +598,7 @@ public class SessionTrackerPluginTest {
         ItemComposition composition = mock(ItemComposition.class);
         when(composition.getName()).thenReturn(itemName(id));
         when(itemManager.getItemComposition(id)).thenReturn(composition);
-        when(itemManager.getItemPrice(id)).thenReturn(price);
+        when(itemManager.getItemPrice(id)).thenReturn((long) price);
     }
 
     private List<StoredSession> stored() {

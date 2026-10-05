@@ -13,7 +13,7 @@ public final class ItemManagerPriceSource implements ItemPriceSource {
     }
 
     @Override
-    public int price(int itemId) {
+    public long price(int itemId) {
         return itemManager.getItemPrice(itemId);
     }
 }
