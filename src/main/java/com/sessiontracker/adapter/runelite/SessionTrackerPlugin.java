@@ -29,7 +29,9 @@ import net.runelite.api.GameState;
 import net.runelite.api.InventoryID;
 import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
+import net.runelite.api.MenuAction;
 import net.runelite.api.events.ActorDeath;
+import net.runelite.api.events.AnimationChanged;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
@@ -53,6 +55,7 @@ import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.util.ImageUtil;
+import net.runelite.client.util.Text;
 
 @PluginDescriptor(
     name = "Session Tracker",
@@ -98,6 +101,15 @@ public class SessionTrackerPlugin extends Plugin {
 
     /** A gather message arrived this tick, so the carried snapshot needs rereading. */
     private boolean stashDirty;
+
+    /**
+     * Tick the player last clicked a quick-deposit object, or -1. Only arms the deposit: what
+     * leaves the inventory counts as banked once the player's deposit animation confirms it.
+     */
+    private int quickDepositClickTick = -1;
+
+    /** Storage screens (see {@link StorageScreens}) currently open. */
+    private final Set<Integer> openStorage = new HashSet<>();
 
     /** Where session JSON is stored. Package-private so tests can point it at a temp directory. */
     Path storeRoot = RuneLite.RUNELITE_DIR.toPath().resolve("sessiontracker");
@@ -176,6 +188,8 @@ public class SessionTrackerPlugin extends Plugin {
         pendingAutoStart = config.autoStartTracking();
         syncedContainers.clear();
         stash.clearAll();
+        quickDepositClickTick = -1;
+        openStorage.clear();
         lastInventory = currentInventory();
     }
 
@@ -384,6 +398,14 @@ public class SessionTrackerPlugin extends Plugin {
         if (service != null && event.getGroupId() == InterfaceID.GRAND_EXCHANGE) {
             service.onGeOpened();
         }
+        // Storing isn't using anything up; keep what goes in counted as kept.
+        if (service != null && StorageScreens.isStorage(event.getGroupId())) {
+            quickDepositClickTick = -1; // a deposit box screen opened instead; it handles itself
+            if (openStorage.isEmpty()) {
+                service.onStorageOpened();
+            }
+            openStorage.add(event.getGroupId());
+        }
     }
 
     @Subscribe
@@ -394,12 +416,23 @@ public class SessionTrackerPlugin extends Plugin {
         if (service != null && event.getGroupId() == InterfaceID.GRAND_EXCHANGE) {
             service.onGeClosed();
         }
+        // Some storage spans two screens (the seed vault); resume once the last one closes.
+        if (service != null && openStorage.remove(event.getGroupId()) && openStorage.isEmpty()) {
+            service.onStorageClosed();
+        }
     }
 
     @Subscribe
     public void onMenuOptionClicked(MenuOptionClicked event) {
         if (service == null) {
             return;
+        }
+        if (isObjectInteraction(event.getMenuAction())
+                && (QuickDeposits.isDepositObject(event.getId()) || isExtraQuickDeposit(event.getMenuTarget()))) {
+            quickDepositClickTick = client.getTickCount();
+        } else if (isMoveOrInteraction(event.getMenuAction())) {
+            // Walking off or interacting with something else abandons the deposit.
+            quickDepositClickTick = -1;
         }
         if ("Drop".equals(event.getMenuOption()) && event.getItemId() > 0) {
             service.markDropped(event.getItemId());
@@ -410,6 +443,57 @@ public class SessionTrackerPlugin extends Plugin {
             StashBags.byAnyItemId(event.getItemId()).ifPresent(bag -> stash.clear(bag.name()));
             service.onContainerTransfer();
         }
+    }
+
+    /**
+     * The player handed something over. If they had just clicked a quick deposit, this is it
+     * happening: what leaves the inventory now went to the bank.
+     */
+    @Subscribe
+    public void onAnimationChanged(AnimationChanged event) {
+        if (service == null || quickDepositClickTick < 0 || event.getActor() != client.getLocalPlayer()) {
+            return;
+        }
+        if (client.getTickCount() - quickDepositClickTick > QuickDeposits.REACH_TICKS) {
+            quickDepositClickTick = -1;
+            return;
+        }
+        if (QuickDeposits.isDepositAnimation(event.getActor().getAnimation())) {
+            quickDepositClickTick = -1;
+            service.onQuickDeposit();
+        }
+    }
+
+    /**
+     * True if the clicked target (an object, or "item -> object" for Use) is one the player added
+     * under Extra quick deposit objects, for anything the built-in list misses.
+     */
+    private boolean isExtraQuickDeposit(String target) {
+        String configured = config.extraQuickDepositObjects();
+        if (target == null || configured == null || configured.isEmpty()) {
+            return false;
+        }
+        String plain = Text.removeTags(target);
+        int arrow = plain.lastIndexOf("->");
+        String object = (arrow >= 0 ? plain.substring(arrow + 2) : plain).trim();
+        for (String name : Text.fromCSV(configured)) {
+            if (!name.isEmpty() && name.equalsIgnoreCase(object)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** An option on a game object, including using an item on one. */
+    private static boolean isObjectInteraction(MenuAction action) {
+        return action != null && action.name().contains("GAME_OBJECT");
+    }
+
+    private static boolean isMoveOrInteraction(MenuAction action) {
+        if (action == null) {
+            return false;
+        }
+        return action == MenuAction.WALK || isObjectInteraction(action) || action.name().startsWith("NPC_");
     }
 
     @Subscribe
