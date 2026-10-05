@@ -42,6 +42,21 @@ public class TripLedgerTest {
     }
 
     @Test
+    public void storingKeepsGatheredItemsAndChargesNoSupplies() {
+        TripLedger ledger = new TripLedger();
+        ItemKey rune = ItemKey.item(561);
+        ItemKey food = ItemKey.item(385);
+        ledger.updateCarried(carried(food, 5));
+        ledger.updateCarried(carried(food, 5, rune, 30)); // crafted 30 runes
+        assertFalse(ledger.updateCarriedStoring(carried(food, 5, rune, 30))); // nothing left yet
+        assertTrue(ledger.updateCarriedStoring(carried())); // runes and food sent to the bank
+        Trip trip = ledger.build("t1", 0, 60_000, false);
+        assertEquals(Integer.valueOf(30), trip.gathered().get(rune));
+        assertTrue(trip.consumedLoot().isEmpty());
+        assertTrue(trip.suppliesUsed().isEmpty());
+    }
+
+    @Test
     public void rebaselineAbsorbsDepositsWithoutCountingThemAsSupplies() {
         TripLedger ledger = new TripLedger();
         ledger.updateCarried(carried());                       // baseline empty

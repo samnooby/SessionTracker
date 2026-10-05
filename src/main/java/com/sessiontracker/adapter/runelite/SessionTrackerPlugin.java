@@ -29,6 +29,7 @@ import net.runelite.api.GameState;
 import net.runelite.api.InventoryID;
 import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
+import net.runelite.api.MenuAction;
 import net.runelite.api.events.ActorDeath;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameStateChanged;
@@ -60,6 +61,12 @@ import net.runelite.client.util.ImageUtil;
     tags = {"loot", "xp", "tracking", "session", "trip"}
 )
 public class SessionTrackerPlugin extends Plugin {
+
+    /**
+     * A one-click deposit straight to the bank: Guardians of the Rift's deposit pool. The runes
+     * leave the inventory without any bank interface opening, so they would otherwise read as used.
+     */
+    static final String QUICK_DEPOSIT_OPTION = "Deposit-runes";
 
     @Inject private Client client;
     @Inject private Gson gson;
@@ -384,6 +391,10 @@ public class SessionTrackerPlugin extends Plugin {
         if (service != null && event.getGroupId() == InterfaceID.GRAND_EXCHANGE) {
             service.onGeOpened();
         }
+        // Depositing isn't using anything up; keep what goes in counted as kept.
+        if (service != null && event.getGroupId() == InterfaceID.DEPOSIT_BOX) {
+            service.onDepositBoxOpened();
+        }
     }
 
     @Subscribe
@@ -394,12 +405,21 @@ public class SessionTrackerPlugin extends Plugin {
         if (service != null && event.getGroupId() == InterfaceID.GRAND_EXCHANGE) {
             service.onGeClosed();
         }
+        if (service != null && event.getGroupId() == InterfaceID.DEPOSIT_BOX) {
+            service.onDepositBoxClosed();
+        }
     }
 
     @Subscribe
     public void onMenuOptionClicked(MenuOptionClicked event) {
         if (service == null) {
             return;
+        }
+        if (QUICK_DEPOSIT_OPTION.equals(event.getMenuOption())) {
+            service.onQuickDeposit();
+        } else if (isMoveOrInteraction(event.getMenuAction())) {
+            // Walking off or interacting with something else abandons a pending quick deposit.
+            service.cancelQuickDeposit();
         }
         if ("Drop".equals(event.getMenuOption()) && event.getItemId() > 0) {
             service.markDropped(event.getItemId());
@@ -410,6 +430,14 @@ public class SessionTrackerPlugin extends Plugin {
             StashBags.byAnyItemId(event.getItemId()).ifPresent(bag -> stash.clear(bag.name()));
             service.onContainerTransfer();
         }
+    }
+
+    private static boolean isMoveOrInteraction(MenuAction action) {
+        if (action == null) {
+            return false;
+        }
+        String name = action.name();
+        return action == MenuAction.WALK || name.startsWith("GAME_OBJECT_") || name.startsWith("NPC_");
     }
 
     @Subscribe

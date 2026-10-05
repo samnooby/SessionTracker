@@ -85,6 +85,34 @@ public final class TripLedger {
         carried = new HashMap<>(settledCarried);
     }
 
+    /**
+     * Like {@link #updateCarried(Map)}, but anything that left the inventory was stored (sent to
+     * the bank by a quick deposit) rather than used: it is neither a supply nor consumed loot, so
+     * loot and gathered resources stay counted as kept. Gains are still reconciled as usual.
+     *
+     * @return true if anything left the inventory, i.e. the deposit has happened
+     */
+    public boolean updateCarriedStoring(Map<ItemKey, Integer> settledCarried) {
+        if (carried == null) {
+            carried = new HashMap<>(settledCarried);
+            return false;
+        }
+        boolean stored = false;
+        for (Map.Entry<ItemKey, Integer> e : settledCarried.entrySet()) {
+            int delta = e.getValue() - carried.getOrDefault(e.getKey(), 0);
+            if (delta > 0) {
+                reconcilePickup(e.getKey(), delta);
+            }
+        }
+        for (Map.Entry<ItemKey, Integer> e : carried.entrySet()) {
+            if (settledCarried.getOrDefault(e.getKey(), 0) < e.getValue()) {
+                stored = true;
+            }
+        }
+        carried = new HashMap<>(settledCarried);
+        return stored;
+    }
+
     public void updateCarried(Map<ItemKey, Integer> settledCarried, Set<ItemKey> droppedThisTick) {
         if (carried == null) {
             carried = new HashMap<>(settledCarried);

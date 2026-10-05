@@ -76,6 +76,7 @@ public class SessionTrackerPluginTest {
 
     private static final int BONES = 526;
     private static final int SAPPHIRE = 1607;
+    private static final int NATURE_RUNE = 561;
     private static final int COAL = net.runelite.api.gameval.ItemID.COAL;
     private static final int COAL_BAG_OPEN = net.runelite.api.gameval.ItemID.COAL_BAG_OPEN;
     private static final int COAL_BAG_CLOSED = net.runelite.api.gameval.ItemID.COAL_BAG;
@@ -389,6 +390,49 @@ public class SessionTrackerPluginTest {
     }
 
     @Test
+    public void runesSentToTheBankByTheGotrDepositPoolStayCountedAsGathered() throws Exception {
+        priceItem(NATURE_RUNE, 200);
+        login();
+        inventoryItems = items(new Item(SHARK, 5));
+        tick();
+
+        inventoryBecomes(new Item(SHARK, 5), new Item(NATURE_RUNE, 30)); // crafted at an altar
+        tick();
+        clickObjectOption(SessionTrackerPlugin.QUICK_DEPOSIT_OPTION);
+        tick(); // still walking over to the pool
+        inventoryBecomes(new Item(SHARK, 5));                             // runes sent to the bank
+        tick();
+        logout();
+
+        StoredTrip trip = onlyTrip();
+        assertEquals(Integer.valueOf(30), trip.gathered.get(key(NATURE_RUNE)));
+        assertNull(trip.consumedLoot.get(key(NATURE_RUNE)));
+        assertNull(trip.suppliesUsed.get(key(NATURE_RUNE)));
+    }
+
+    @Test
+    public void depositBoxDepositsAreNotUsedUp() throws Exception {
+        when(config.bankDetection()).thenReturn(true); // a deposit box is not the bank: no new trip
+        login();
+        inventoryItems = items(new Item(SHARK, 5));
+        tick();
+        kill("Vorkath");
+
+        inventoryBecomes(new Item(SHARK, 5), new Item(SAPPHIRE, 2));
+        tick();
+        openWidget(InterfaceID.DEPOSIT_BOX);
+        inventoryBecomes();
+        tick();
+        closeWidget(InterfaceID.DEPOSIT_BOX);
+        logout();
+
+        StoredTrip trip = onlyTrip();
+        assertEquals(Integer.valueOf(2), trip.gathered.get(key(SAPPHIRE)));
+        assertNull(trip.consumedLoot.get(key(SAPPHIRE)));
+        assertNull(trip.suppliesUsed.get(key(SHARK)));
+    }
+
+    @Test
     public void resumeLastTripAfterBankingMergesTheSplitTrip() throws Exception {
         login();
         inventoryItems = items(new Item(SHARK, 5));
@@ -466,6 +510,14 @@ public class SessionTrackerPluginTest {
         when(entry.isItemOp()).thenReturn(true);
         when(entry.getItemId()).thenReturn(itemId);
         when(entry.getOption()).thenReturn(option);
+        plugin.onMenuOptionClicked(new MenuOptionClicked(entry));
+    }
+
+    /** The player clicks an option on a game object, such as the GOTR deposit pool. */
+    private void clickObjectOption(String option) {
+        MenuEntry entry = mock(MenuEntry.class);
+        when(entry.getOption()).thenReturn(option);
+        when(entry.getType()).thenReturn(net.runelite.api.MenuAction.GAME_OBJECT_FIRST_OPTION);
         plugin.onMenuOptionClicked(new MenuOptionClicked(entry));
     }
 

@@ -238,6 +238,96 @@ public class TrackingServiceDeathAndBankTest {
         assertEquals(50, service.currentSnapshot().get().gatheredGp);
     }
 
+    /** Craft {@code qty} more of item 560 (a gather), settling one tick. */
+    private void gather(TrackingService service, FakeCarried carried, FakeClock clock, int qty) {
+        carried.carried.merge(560, qty, Integer::sum);
+        service.markCarriedDirty();
+        clock.now += 600;
+        service.onTick();
+    }
+
+    @Test
+    public void quickDepositedRunesStayCountedAsProfit() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        carried.carried.put(1, 5); // brought along: a quick deposit sends it to the bank too
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+        service.startSession();
+
+        gather(service, carried, clock, 100);
+        // Deposit-runes clicked; a few quiet ticks walking over, then the runes leave together
+        // with the brought item.
+        service.onQuickDeposit();
+        for (int i = 0; i < 5; i++) {
+            clock.now += 600;
+            service.onTick();
+        }
+        carried.carried.clear();
+        service.markCarriedDirty();
+        clock.now += 600;
+        service.onTick();
+
+        TripSnapshot snap = service.currentSnapshot().get();
+        assertEquals(100, snap.gatheredGp);
+        assertEquals(0, snap.consumedLootGp);
+        assertEquals(0, snap.suppliesGp);
+
+        // The deposit is spent: crafting and then using runes afterwards reads as normal again.
+        gather(service, carried, clock, 40);
+        carried.carried.put(560, 10);
+        service.markCarriedDirty();
+        clock.now += 600;
+        service.onTick();
+        snap = service.currentSnapshot().get();
+        assertEquals(110, snap.gatheredGp);
+        assertEquals(30, snap.consumedLootGp);
+    }
+
+    @Test
+    public void cancelledQuickDepositLeavesLaterLossesAsUsed() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+        service.startSession();
+
+        gather(service, carried, clock, 100);
+        service.onQuickDeposit();
+        service.cancelQuickDeposit();
+        carried.carried.put(560, 60);
+        service.markCarriedDirty();
+        clock.now += 600;
+        service.onTick();
+
+        assertEquals(60, service.currentSnapshot().get().gatheredGp);
+    }
+
+    @Test
+    public void depositBoxKeepsDepositedLootAndDoesNotEndTheTrip() throws Exception {
+        FakeClock clock = new FakeClock();
+        FakeCarried carried = new FakeCarried();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        TrackingService service = newService(clock, carried, new FakePanel(), store);
+        service.startSession();
+
+        gather(service, carried, clock, 100);
+        service.onDepositBoxOpened();
+        carried.carried.clear();
+        service.markCarriedDirty();
+        clock.now += 600;
+        service.onTick();
+        service.onDepositBoxClosed();
+
+        TripSnapshot snap = service.currentSnapshot().get();
+        assertEquals(1, snap.tripNumber);
+        assertEquals(100, snap.gatheredGp);
+        assertEquals(0, snap.consumedLootGp);
+
+        gather(service, carried, clock, 25);
+        assertEquals(125, service.currentSnapshot().get().gatheredGp);
+    }
+
     @Test
     public void twoNonEmptyTripsPersistInOneSession() throws Exception {
         FakeClock clock = new FakeClock();

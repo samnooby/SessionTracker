@@ -44,6 +44,12 @@ public final class TrackingService {
     private boolean awaitingDeathChoice;
     private boolean bankOpen;
     private boolean geOpen;
+    private boolean depositBoxOpen;
+    // While > 0, a quick deposit (e.g. GOTR's deposit pool "Deposit-runes") has been clicked and
+    // the player may still be walking to it. The next inventory change that loses items is the
+    // deposit: those items went to the bank, so they are stored rather than used.
+    private int quickDepositTicks;
+    private static final int QUICK_DEPOSIT_WINDOW_TICKS = 25;
     // While > 0, the next inventory change is a container transfer (see onContainerTransfer) and
     // is rebaselined rather than reconciled. Counts down on quiet ticks so a click that changed
     // nothing (e.g. filling an already-full sack) cannot swallow a later real consumption.
@@ -120,6 +126,8 @@ public final class TrackingService {
         awaitingDeathChoice = false;
         bankOpen = false;
         geOpen = false;
+        depositBoxOpen = false;
+        quickDepositTicks = 0;
         containerTransferTicks = 0;
         ledger.updateCarried(normalize(carried.currentCarried()));
         ledgerDirty = true;
@@ -148,11 +156,16 @@ public final class TrackingService {
         }
         if (inventoryDirty) {
             Map<ItemKey, Integer> settled = normalize(carried.currentCarried());
-            if (bankOpen || geOpen || containerTransferTicks > 0) {
-                // Inventory changes while the bank or Grand Exchange is open (deposits,
-                // withdrawals, collecting bought/sold offers), or right after a container
-                // transfer, move items around rather than consuming or gaining them.
+            if (bankOpen || geOpen || depositBoxOpen || containerTransferTicks > 0) {
+                // Inventory changes while the bank, a deposit box or the Grand Exchange is open
+                // (deposits, withdrawals, collecting bought/sold offers), or right after a
+                // container transfer, move items around rather than consuming or gaining them.
                 ledger.rebaseline(settled);
+            } else if (quickDepositTicks > 0) {
+                if (ledger.updateCarriedStoring(settled)) {
+                    quickDepositTicks = 0;
+                }
+                ledgerDirty = true;
             } else {
                 ledger.updateCarried(settled, droppedThisTick);
                 ledgerDirty = true;
@@ -161,6 +174,9 @@ public final class TrackingService {
             containerTransferTicks = 0;
         } else if (containerTransferTicks > 0) {
             containerTransferTicks--;
+        }
+        if (quickDepositTicks > 0) {
+            quickDepositTicks--;
         }
         droppedThisTick.clear();
         maybeNameAfterGather();
@@ -265,6 +281,45 @@ public final class TrackingService {
         }
         geOpen = false;
         ledger.rebaseline(normalize(carried.currentCarried()));
+    }
+
+    /**
+     * A bank deposit box opened (including GOTR's deposit pool "Deposit items"). Like the GE,
+     * inventory changes while it is open are rebaselined, so what you deposit stays counted as
+     * kept rather than read as used. Unlike the bank, it never ends the trip.
+     */
+    public void onDepositBoxOpened() {
+        if (ledger == null || awaitingDeathChoice) {
+            return;
+        }
+        depositBoxOpen = true;
+    }
+
+    /** Deposit box closed. Pin the post-deposit inventory as the baseline and resume tracking. */
+    public void onDepositBoxClosed() {
+        if (ledger == null || awaitingDeathChoice) {
+            return;
+        }
+        depositBoxOpen = false;
+        ledger.rebaseline(normalize(carried.currentCarried()));
+    }
+
+    /**
+     * A one-click deposit to the bank was clicked (GOTR's deposit pool "Deposit-runes"). The
+     * player may walk there first, so the next inventory loss within a generous window is taken
+     * as the deposit: those items are stored, not used, so loot and gathered resources (the runes
+     * you crafted) stay counted as profit and nothing deposited is charged as a supply.
+     */
+    public void onQuickDeposit() {
+        if (ledger == null || awaitingDeathChoice) {
+            return;
+        }
+        quickDepositTicks = QUICK_DEPOSIT_WINDOW_TICKS;
+    }
+
+    /** The player did something else instead, so the pending quick deposit will not happen. */
+    public void cancelQuickDeposit() {
+        quickDepositTicks = 0;
     }
 
     /**
