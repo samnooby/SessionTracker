@@ -256,13 +256,8 @@ public class TrackingServiceDeathAndBankTest {
         service.startSession();
 
         gather(service, carried, clock, 100);
-        // Deposit-runes clicked; a few quiet ticks walking over, then the runes leave together
-        // with the brought item.
+        // The deposit animation played; the runes leave together with the brought item.
         service.onQuickDeposit();
-        for (int i = 0; i < 5; i++) {
-            clock.now += 600;
-            service.onTick();
-        }
         carried.carried.clear();
         service.markCarriedDirty();
         clock.now += 600;
@@ -285,7 +280,7 @@ public class TrackingServiceDeathAndBankTest {
     }
 
     @Test
-    public void cancelledQuickDepositLeavesLaterLossesAsUsed() throws Exception {
+    public void aLossLongAfterTheDepositIsUsedNotStored() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
         SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
@@ -293,8 +288,11 @@ public class TrackingServiceDeathAndBankTest {
         service.startSession();
 
         gather(service, carried, clock, 100);
-        service.onQuickDeposit();
-        service.cancelQuickDeposit();
+        service.onQuickDeposit(); // nothing actually left the inventory
+        for (int i = 0; i < 3; i++) {
+            clock.now += 600;
+            service.onTick();
+        }
         carried.carried.put(560, 60);
         service.markCarriedDirty();
         clock.now += 600;

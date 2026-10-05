@@ -27,10 +27,12 @@ modifies the game interface.
   huntsman's and tackle kits are read directly, so stashing items is never counted as a cost and
   unpacking them is never counted as a gain.
 - **Quick deposits** — anything you send to the bank without opening it is stored, not used:
-  Guardians of the Rift's **Deposit-runes**, using an item on a bank deposit box or chest, or the
-  deposit box screen itself. Loot and gathered items (the runes you crafted) stay counted as
-  profit, and deposited supplies are not charged. None of these end the trip. Add any other
-  deposit object by name under **Quick deposit objects** in the plugin settings.
+  Guardians of the Rift's **Deposit-runes**, using an item on any bank deposit box, chest or
+  deposit pot, or the deposit box screen itself. A click alone isn't enough: the deposit counts
+  once your character's hand-it-over animation confirms it, so eating on the way there is still
+  eating. Loot and gathered items (the runes you crafted) stay counted as profit, and deposited
+  supplies are not charged. None of these end the trip. If an object is missed, add its name
+  under **Extra quick deposit objects** in the plugin settings.
 - **Open bags that collect for you** — a herb sack, gem bag, coal bag, fish barrel or log basket
   hides its contents from the client entirely, so what an open one swallows is read from the
   game's own gather messages and counted in the trip it happened in, rather than whenever you

@@ -48,6 +48,10 @@ import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.events.MenuOptionClicked;
+import net.runelite.api.events.AnimationChanged;
+import net.runelite.api.MenuAction;
+import net.runelite.api.gameval.AnimationID;
+import net.runelite.api.gameval.ObjectID;
 import net.runelite.api.events.StatChanged;
 import net.runelite.api.events.WidgetClosed;
 import net.runelite.api.events.WidgetLoaded;
@@ -77,6 +81,8 @@ public class SessionTrackerPluginTest {
     private static final int BONES = 526;
     private static final int SAPPHIRE = 1607;
     private static final int NATURE_RUNE = 561;
+    private static final int DEPOSIT_POOL = ObjectID.GOTR_DEPOSITCHEST;
+    private static final int REWARD_POOL = 12_345; // an object that takes items without banking them
     private static final int COAL = net.runelite.api.gameval.ItemID.COAL;
     private static final int COAL_BAG_OPEN = net.runelite.api.gameval.ItemID.COAL_BAG_OPEN;
     private static final int COAL_BAG_CLOSED = net.runelite.api.gameval.ItemID.COAL_BAG;
@@ -121,7 +127,7 @@ public class SessionTrackerPluginTest {
         when(config.nameAfterFirstGather()).thenReturn(true);
         when(config.showItemIcons()).thenReturn(false);
         when(config.trackOpenBags()).thenReturn(true);
-        when(config.quickDepositObjects()).thenReturn(SessionTrackerPlugin.DEFAULT_QUICK_DEPOSIT_OBJECTS);
+        when(config.extraQuickDepositObjects()).thenReturn("");
 
         when(client.getGameState()).thenReturn(GameState.LOGIN_SCREEN);
         when(client.getAccountHash()).thenReturn(42L);
@@ -399,8 +405,9 @@ public class SessionTrackerPluginTest {
 
         inventoryBecomes(new Item(SHARK, 5), new Item(NATURE_RUNE, 30)); // crafted at an altar
         tick();
-        clickObject("Deposit-runes", "<col=ffff>Deposit Pool");
+        clickObject(DEPOSIT_POOL, "Deposit-runes", "<col=ffff>Deposit Pool");
         tick(); // still walking over to the pool
+        playAnimation(AnimationID.HUMAN_LEVERDOWN_WALKMERGE);
         inventoryBecomes(new Item(SHARK, 5));                             // runes sent to the bank
         tick();
         logout();
@@ -409,6 +416,28 @@ public class SessionTrackerPluginTest {
         assertEquals(Integer.valueOf(30), trip.gathered.get(key(NATURE_RUNE)));
         assertNull(trip.consumedLoot.get(key(NATURE_RUNE)));
         assertNull(trip.suppliesUsed.get(key(NATURE_RUNE)));
+    }
+
+    @Test
+    public void eatingOnTheWayToTheDepositPoolStillCountsAsUsed() throws Exception {
+        priceItem(NATURE_RUNE, 200);
+        login();
+        inventoryItems = items(new Item(SHARK, 5));
+        tick();
+        inventoryBecomes(new Item(SHARK, 5), new Item(NATURE_RUNE, 30));
+        tick();
+
+        clickObject(DEPOSIT_POOL, "Deposit-runes", "<col=ffff>Deposit Pool");
+        inventoryBecomes(new Item(SHARK, 4), new Item(NATURE_RUNE, 30)); // ate on the way
+        tick();
+        playAnimation(AnimationID.HUMAN_LEVERDOWN);
+        inventoryBecomes(new Item(SHARK, 4));
+        tick();
+        logout();
+
+        StoredTrip trip = onlyTrip();
+        assertEquals(Integer.valueOf(1), trip.suppliesUsed.get(key(SHARK)));
+        assertNull(trip.consumedLoot.get(key(NATURE_RUNE)));
     }
 
     @Test
@@ -421,10 +450,12 @@ public class SessionTrackerPluginTest {
         inventoryBecomes(new Item(SHARK, 5), new Item(BONES, 1)); // picked up the drop
         tick();
 
-        clickUseOn(BONES, "Bank deposit box");
+        clickUseOn(BONES, ObjectID.SARIM_DEPOSIT_BOX, "Bank deposit box");
+        playAnimation(AnimationID.HUMAN_LEVERDOWN);
         inventoryBecomes(new Item(SHARK, 5));
         tick();
-        clickUseOn(SHARK, "Bank deposit box");
+        clickUseOn(SHARK, ObjectID.SARIM_DEPOSIT_BOX, "Bank deposit box");
+        playAnimation(AnimationID.HUMAN_LEVERDOWN);
         inventoryBecomes();
         tick();
         logout();
@@ -436,14 +467,16 @@ public class SessionTrackerPluginTest {
     }
 
     @Test
-    public void objectsNotInTheQuickDepositListStillUseUpWhatGoesIn() throws Exception {
+    public void walkingOffAbandonsTheDeposit() throws Exception {
         when(config.bankDetection()).thenReturn(false);
         login();
         inventoryItems = items(new Item(SHARK, 5));
         tick();
         kill("Vorkath");
 
-        clickObject("Deposit", "<col=ffff>Reward pool"); // turned in for points, not banked
+        clickObject(DEPOSIT_POOL, "Deposit-runes", "<col=ffff>Deposit Pool");
+        clickWalk();
+        playAnimation(AnimationID.HUMAN_LEVERDOWN); // pulled a lever somewhere else
         inventoryBecomes(new Item(SHARK, 3));
         tick();
         logout();
@@ -452,15 +485,33 @@ public class SessionTrackerPluginTest {
     }
 
     @Test
-    public void quickDepositObjectsCanBeConfigured() throws Exception {
+    public void objectsThatDoNotBankStillUseUpWhatGoesIn() throws Exception {
         when(config.bankDetection()).thenReturn(false);
-        when(config.quickDepositObjects()).thenReturn("Reward pool");
         login();
         inventoryItems = items(new Item(SHARK, 5));
         tick();
         kill("Vorkath");
 
-        clickObject("Deposit", "<col=ffff>Reward pool");
+        clickObject(REWARD_POOL, "Deposit", "<col=ffff>Reward pool"); // turned in for points
+        playAnimation(AnimationID.HUMAN_LEVERDOWN);
+        inventoryBecomes(new Item(SHARK, 3));
+        tick();
+        logout();
+
+        assertEquals(Integer.valueOf(2), onlyTrip().suppliesUsed.get(key(SHARK)));
+    }
+
+    @Test
+    public void extraQuickDepositObjectsCanBeAddedByName() throws Exception {
+        when(config.bankDetection()).thenReturn(false);
+        when(config.extraQuickDepositObjects()).thenReturn("Some chest, Reward pool");
+        login();
+        inventoryItems = items(new Item(SHARK, 5));
+        tick();
+        kill("Vorkath");
+
+        clickObject(REWARD_POOL, "Deposit", "<col=ffff>Reward pool");
+        playAnimation(AnimationID.HUMAN_LEVERDOWN);
         inventoryBecomes(new Item(SHARK, 3));
         tick();
         logout();
@@ -572,22 +623,35 @@ public class SessionTrackerPluginTest {
     }
 
     /** The player clicks an option on a game object, such as Deposit-runes on the GOTR pool. */
-    private void clickObject(String option, String target) {
-        MenuEntry entry = mock(MenuEntry.class);
-        when(entry.getOption()).thenReturn(option);
-        when(entry.getTarget()).thenReturn(target);
-        when(entry.getType()).thenReturn(net.runelite.api.MenuAction.GAME_OBJECT_FIRST_OPTION);
-        plugin.onMenuOptionClicked(new MenuOptionClicked(entry));
+    private void clickObject(int objectId, String option, String target) {
+        click(objectId, option, target, MenuAction.GAME_OBJECT_FIRST_OPTION);
     }
 
     /** The player uses an inventory item on a game object, such as a bank deposit box. */
-    private void clickUseOn(int itemId, String objectName) {
+    private void clickUseOn(int itemId, int objectId, String objectName) {
+        click(objectId, "Use", "<col=ff9040>" + itemName(itemId) + "<col=ffffff> -> <col=ffff>" + objectName,
+                MenuAction.WIDGET_TARGET_ON_GAME_OBJECT);
+    }
+
+    private void clickWalk() {
+        click(0, "Walk here", "", MenuAction.WALK);
+    }
+
+    private void click(int identifier, String option, String target, MenuAction action) {
         MenuEntry entry = mock(MenuEntry.class);
-        when(entry.getOption()).thenReturn("Use");
-        when(entry.getTarget()).thenReturn(
-                "<col=ff9040>" + itemName(itemId) + "<col=ffffff> -> <col=ffff>" + objectName);
-        when(entry.getType()).thenReturn(net.runelite.api.MenuAction.WIDGET_TARGET_ON_GAME_OBJECT);
+        when(entry.getIdentifier()).thenReturn(identifier);
+        when(entry.getOption()).thenReturn(option);
+        when(entry.getTarget()).thenReturn(target);
+        when(entry.getType()).thenReturn(action);
         plugin.onMenuOptionClicked(new MenuOptionClicked(entry));
+    }
+
+    /** The local player plays an animation (as the game does when handing items over). */
+    private void playAnimation(int animationId) {
+        when(localPlayer.getAnimation()).thenReturn(animationId);
+        AnimationChanged event = new AnimationChanged();
+        event.setActor(localPlayer);
+        plugin.onAnimationChanged(event);
     }
 
     private void kill(String npcName, ItemStack... drops) {

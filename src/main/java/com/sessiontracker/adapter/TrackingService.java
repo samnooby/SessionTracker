@@ -45,11 +45,11 @@ public final class TrackingService {
     private boolean bankOpen;
     private boolean geOpen;
     private boolean depositBoxOpen;
-    // While > 0, a quick deposit (GOTR's deposit pool, an item used on a deposit box) was clicked and
-    // the player may still be walking to it. The next inventory change that loses items is the
-    // deposit: those items went to the bank, so they are stored rather than used.
+    // While > 0, a quick deposit (GOTR's deposit pool, an item used on a deposit box) has just
+    // happened. The next inventory change that loses items is it: those items went to the bank,
+    // so they are stored rather than used.
     private int quickDepositTicks;
-    private static final int QUICK_DEPOSIT_WINDOW_TICKS = 25;
+    private static final int QUICK_DEPOSIT_WINDOW_TICKS = 3;
     // While > 0, the next inventory change is a container transfer (see onContainerTransfer) and
     // is rebaselined rather than reconciled. Counts down on quiet ticks so a click that changed
     // nothing (e.g. filling an already-full sack) cannot swallow a later real consumption.
@@ -306,21 +306,16 @@ public final class TrackingService {
     }
 
     /**
-     * A one-click deposit to the bank was clicked (GOTR's deposit pool "Deposit-runes", or an item
-     * used on a deposit box). The player may walk there first, so the next inventory loss within a
-     * generous window is taken as the deposit: whatever left was stored, not used, so loot and
-     * gathered resources stay counted as profit and nothing deposited is charged as a supply.
+     * A one-click deposit to the bank just happened (GOTR's deposit pool "Deposit-runes", or an
+     * item used on a deposit box). The inventory loss that goes with it, this tick or the next
+     * couple, was stored rather than used: loot and gathered resources stay counted as profit and
+     * nothing deposited is charged as a supply.
      */
     public void onQuickDeposit() {
         if (ledger == null || awaitingDeathChoice) {
             return;
         }
         quickDepositTicks = QUICK_DEPOSIT_WINDOW_TICKS;
-    }
-
-    /** The player did something else instead, so the pending quick deposit will not happen. */
-    public void cancelQuickDeposit() {
-        quickDepositTicks = 0;
     }
 
     /**
