@@ -17,4 +17,7 @@ public final class StoredTrip {
     public Map<String, Integer> consumedLoot;
     public Map<String, Long> xpGained;
     public Map<String, Long> unitPrices;
+    // Absent (null / 0) in trips saved before fight timing existed.
+    public Map<String, StoredKillTimes> killTimes;
+    public long combatMillis;
 }

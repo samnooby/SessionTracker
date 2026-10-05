@@ -739,4 +739,34 @@ public class SessionHistoryTest {
 
         assertTrue(history.sessionsNewestFirst().isEmpty());
     }
+
+    @Test
+    public void categoryDetailReportsKillTimesKillsPerHourAndUptime() throws Exception {
+        Path root = Files.createTempDirectory("grt");
+        SessionStore store = new SessionStore(root, new com.google.gson.Gson());
+        Map<String, Integer> kills = new HashMap<>();
+        kills.put("Vorkath", 4);
+        kills.put("Zombified Spawn", 1);
+        Map<String, com.sessiontracker.core.KillTimes> times = new HashMap<>();
+        times.put("Vorkath", new com.sessiontracker.core.KillTimes(4, 480_000, 105_000));
+        times.put("Zombified Spawn", com.sessiontracker.core.KillTimes.of(1_800));
+        Trip t = new Trip("t1", 0, 1_800_000L, false, kills, new HashMap<>(), new HashMap<>(),
+                new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(),
+                times, 900_000L);
+        save(store, "acct", "s", "Vorkath", "", 0, 1_800_000L,
+                Arrays.asList(SessionMapper.toStored(t, new HashMap<>())));
+
+        SessionHistory.CategoryDetail d = new SessionHistory(store, "acct", names)
+                .categoryDetail("Vorkath");
+
+        assertEquals(10.0, d.killsPerHour, 1e-9); // 5 kills in 30 minutes
+        assertTrue(d.hasCombatTime);
+        assertEquals(0.5, d.combatUptime, 1e-9);
+        assertEquals(2, d.killTimes.size());
+        SessionHistory.NpcKillTime vorkath = d.killTimes.get(0); // most timed kills first
+        assertEquals("Vorkath", vorkath.npc);
+        assertEquals(4, vorkath.timedKills);
+        assertEquals(120_000, vorkath.avgMillis);
+        assertEquals(105_000, vorkath.fastestMillis);
+    }
 }

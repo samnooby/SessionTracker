@@ -9,8 +9,7 @@ These need no new tracking or storage changes; they fit into `CategoryStats` and
 - [ ] **Deaths and death rate** — `Trip.died()` is stored but never shown. Show deaths per
   session and per category, and the net GP of trips with a death versus trips without, so a
   category's risk is visible.
-- [ ] **Kills per hour** — the Stats tab has average kills per trip; kills per hour
-  (`totalKills / wallClock`) is the number bossers compare.
+- [x] **Kills per hour** — shown in the Stats tab's per-hour card.
 - [ ] **Time between trips (banking time)** — session wall clock minus the sum of trip
   durations (minus `pausedMillis`). Show it as a share of the session, e.g. "18% of session
   spent banking", to show when a different bank or teleport setup would pay off.
@@ -32,7 +31,6 @@ These need no new tracking or storage changes; they fit into `CategoryStats` and
 - [ ] **Drop log and rare drops** — how many times each item dropped and the kill count when it
   did, including "dry streak since last X". `dropped` has per-trip quantities but not when each
   drop happened.
-- [ ] **Kill times** — time per kill and a personal best per NPC; needs a timestamp each time a
-  kill is credited.
+- [x] **Kill times** — average and fastest time to kill per NPC, plus combat uptime.
 - [ ] **Trends over time** — GP/hr this week vs. last week, or the last 5 sessions in a category
   vs. all of them. Session start times are already stored, so this is mostly UI work.

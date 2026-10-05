@@ -1,6 +1,7 @@
 package com.sessiontracker.adapter;
 
 import com.sessiontracker.core.CategoryStats;
+import com.sessiontracker.core.KillTimes;
 import com.sessiontracker.core.Session;
 import com.sessiontracker.core.Trip;
 import com.sessiontracker.core.item.ItemKey;
@@ -171,6 +172,14 @@ public final class SessionHistory {
         killAverages.sort(Comparator.comparingDouble((NpcKillAverage k) -> k.avgPerTrip).reversed()
                 .thenComparing(k -> k.npc));
 
+        List<NpcKillTime> killTimes = new ArrayList<>();
+        for (Map.Entry<String, KillTimes> e : cs.killTimes().entrySet()) {
+            KillTimes t = e.getValue();
+            killTimes.add(new NpcKillTime(e.getKey(), t.count(), t.averageMillis(), t.fastestMillis()));
+        }
+        killTimes.sort(Comparator.comparingInt((NpcKillTime k) -> k.timedKills).reversed()
+                .thenComparing(k -> k.npc));
+
         return new CategoryDetail(cs.gpPerHour(), cs.xpPerHour(), cs.avgNetProfitPerTrip(),
                 cs.avgMissedPerTrip(), cs.avgTripDurationMillis(), cs.avgSessionDurationMillis(),
                 cs.avgKillsPerTrip(),
@@ -178,7 +187,8 @@ public final class SessionHistory {
                 pickedAvg.items, pickedAvg.avgTotalGpPerTrip,
                 missedAvg.items, droppedAvg.items, droppedAvg.avgTotalGpPerTrip,
                 gatheredAvg.items, gatheredAvg.avgTotalGpPerTrip, combatGpPerHour, gatherGpPerHour,
-                suppliesGpPerHour, usedLootAvg.items, usedLootAvg.avgTotalGpPerTrip);
+                suppliesGpPerHour, usedLootAvg.items, usedLootAvg.avgTotalGpPerTrip,
+                cs.killsPerHour(), cs.hasCombatTime(), cs.combatUptime(), killTimes);
     }
 
     public void rename(String sessionId, String newName) {
@@ -489,6 +499,21 @@ public final class SessionHistory {
         }
     }
 
+    /** How long one NPC took to kill, over the kills that were timed. */
+    public static final class NpcKillTime {
+        public final String npc;
+        public final int timedKills;
+        public final long avgMillis;
+        public final long fastestMillis;
+
+        public NpcKillTime(String npc, int timedKills, long avgMillis, long fastestMillis) {
+            this.npc = npc;
+            this.timedKills = timedKills;
+            this.avgMillis = avgMillis;
+            this.fastestMillis = fastestMillis;
+        }
+    }
+
     public static final class CategoryDetail {
         public final long gpPerHour;
         public final long xpPerHour;
@@ -513,6 +538,10 @@ public final class SessionHistory {
         public final long suppliesGpPerHour;
         public final List<ItemAverage> usedLootAverages;
         public final long avgUsedLootGpPerTrip;
+        public final double killsPerHour;
+        public final boolean hasCombatTime;
+        public final double combatUptime;
+        public final List<NpcKillTime> killTimes;
 
         public CategoryDetail(long gpPerHour, long xpPerHour, long avgNetProfitPerTrip,
                               long avgMissedPerTrip, long avgTripDurationMillis,
@@ -524,7 +553,9 @@ public final class SessionHistory {
                               long avgDroppedGpPerTrip, List<ItemAverage> gatheredAverages,
                               long avgGatheredGpPerTrip, long combatGpPerHour, long gatherGpPerHour,
                               long suppliesGpPerHour, List<ItemAverage> usedLootAverages,
-                              long avgUsedLootGpPerTrip) {
+                              long avgUsedLootGpPerTrip, double killsPerHour,
+                              boolean hasCombatTime, double combatUptime,
+                              List<NpcKillTime> killTimes) {
             this.gpPerHour = gpPerHour;
             this.xpPerHour = xpPerHour;
             this.avgNetProfitPerTrip = avgNetProfitPerTrip;
@@ -548,6 +579,10 @@ public final class SessionHistory {
             this.suppliesGpPerHour = suppliesGpPerHour;
             this.usedLootAverages = usedLootAverages;
             this.avgUsedLootGpPerTrip = avgUsedLootGpPerTrip;
+            this.killsPerHour = killsPerHour;
+            this.hasCombatTime = hasCombatTime;
+            this.combatUptime = combatUptime;
+            this.killTimes = killTimes;
         }
     }
 }

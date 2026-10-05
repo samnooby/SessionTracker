@@ -996,4 +996,76 @@ public class TrackingServiceTest {
         assertTrue(service.isTracking());
         assertEquals(0L, service.currentSessionSnapshot().get().netProfit);
     }
+
+    @Test
+    public void timesKillsAndCombatIntoTheTrip() throws Exception {
+        FakeClock clock = new FakeClock();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        TrackingService service = newService(clock, new FakeCarried(), new FakePanel(), store);
+        service.startSession();
+
+        clock.now = 10_000;
+        service.onNpcHit(5);
+        clock.now = 13_000;
+        service.onNpcHit(5);
+        clock.now = 16_000;
+        service.onNpcDeath(5, "Goblin");
+        service.onKill("Goblin", new HashMap<>());
+        // A goblin the player never hit dies nearby: not timed.
+        service.onNpcDeath(9, "Goblin");
+        clock.now = 60_000;
+        service.endCurrentTrip();
+
+        StoredTrip trip = store.load("acct-A").get(0).trips.get(0);
+        assertEquals(1, trip.killTimes.get("Goblin").count);
+        assertEquals(6_000, trip.killTimes.get("Goblin").totalMillis);
+        assertEquals(6_000, trip.combatMillis);
+    }
+
+    @Test
+    public void aFightRunningWhenTheTripEndsIsSplitBetweenTrips() throws Exception {
+        FakeClock clock = new FakeClock();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        TrackingService service = newService(clock, new FakeCarried(), new FakePanel(), store);
+        service.startSession();
+
+        clock.now = 10_000;
+        service.onNpcHit(5);
+        service.onKill("Goblin", new HashMap<>()); // something to keep the first trip
+        clock.now = 14_000;
+        service.endCurrentTrip();
+        clock.now = 15_000;
+        service.onNpcHit(5);
+        clock.now = 20_000;
+        service.onNpcDeath(5, "Goblin");
+        service.onKill("Goblin", new HashMap<>());
+        service.endCurrentTrip();
+
+        List<StoredTrip> trips = store.load("acct-A").get(0).trips;
+        assertEquals(4_000, trips.get(0).combatMillis);
+        assertEquals(6_000, trips.get(1).combatMillis);
+        assertEquals(10_000, trips.get(1).killTimes.get("Goblin").totalMillis);
+    }
+
+    @Test
+    public void anAbandonedFightIsDroppedOnTick() throws Exception {
+        FakeClock clock = new FakeClock();
+        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        TrackingService service = newService(clock, new FakeCarried(), new FakePanel(), store);
+        service.startSession();
+
+        clock.now = 1_000;
+        service.onNpcHit(5);
+        clock.now = 2_000;
+        service.onNpcHit(5);
+        clock.now = 2_000 + com.sessiontracker.core.FightTracker.ABANDON_AFTER_MILLIS;
+        service.onTick();
+        service.onNpcDeath(5, "Goblin");
+        service.onKill("Goblin", new HashMap<>());
+        service.endCurrentTrip();
+
+        StoredTrip trip = store.load("acct-A").get(0).trips.get(0);
+        assertTrue(trip.killTimes.isEmpty());
+        assertEquals(1_000, trip.combatMillis);
+    }
 }

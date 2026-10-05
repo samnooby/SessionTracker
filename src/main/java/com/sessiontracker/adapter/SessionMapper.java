@@ -1,5 +1,6 @@
 package com.sessiontracker.adapter;
 
+import com.sessiontracker.core.KillTimes;
 import com.sessiontracker.core.Session;
 import com.sessiontracker.core.Trip;
 import com.sessiontracker.core.item.ItemKey;
@@ -32,6 +33,9 @@ public final class SessionMapper {
         stored.consumedLoot = encode(trip.consumedLoot());
         stored.xpGained = new HashMap<>(trip.xpGained());
         stored.unitPrices = encodeLong(unitPrices);
+        stored.killTimes = new HashMap<>();
+        trip.killTimes().forEach((npc, t) -> stored.killTimes.put(npc, StoredKillTimes.from(t)));
+        stored.combatMillis = trip.combatMillis();
         return stored;
     }
 
@@ -41,7 +45,16 @@ public final class SessionMapper {
                 decode(stored.dropped), decode(stored.pickedUp),
                 decode(stored.missed), decode(stored.suppliesUsed),
                 decode(stored.gathered), decode(stored.consumedLoot),
-                new HashMap<>(stored.xpGained));
+                new HashMap<>(stored.xpGained), decodeKillTimes(stored.killTimes),
+                stored.combatMillis);
+    }
+
+    private static Map<String, KillTimes> decodeKillTimes(Map<String, StoredKillTimes> map) {
+        Map<String, KillTimes> out = new HashMap<>();
+        if (map != null) {
+            map.forEach((npc, t) -> out.put(npc, t.toKillTimes()));
+        }
+        return out;
     }
 
     public static Session toSession(StoredSession stored) {

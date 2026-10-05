@@ -120,4 +120,58 @@ public class CategoryAggregatorTest {
         CategoryStats stats = CategoryStats.from("Cat", java.util.Collections.emptyList(), oneGp);
         assertEquals(0L, stats.avgSessionDurationMillis());
     }
+
+    private Trip timedTrip(String id, long start, long end, int kills,
+                           Map<String, KillTimes> times, long combatMillis) {
+        Map<String, Integer> killMap = new HashMap<>();
+        killMap.put("Demonic gorilla", kills);
+        return new Trip(id, start, end, false, killMap, new HashMap<>(), new HashMap<>(),
+                new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(),
+                times, combatMillis);
+    }
+
+    @Test
+    public void killsPerHourIsOverWallClock() {
+        Session s1 = session("s1", "Cat",
+                trip("a", 0, 1_800_000, 0, 20),
+                trip("b", 2_700_000, 3_600_000, 0, 10));
+        CategoryStats stats = CategoryStats.from("Cat", Arrays.asList(s1), oneGp);
+        assertEquals(30.0, stats.killsPerHour(), 1e-9);
+    }
+
+    @Test
+    public void killTimesMergeAcrossTripsAndSessions() {
+        Map<String, KillTimes> a = new HashMap<>();
+        a.put("Demonic gorilla", new KillTimes(2, 100_000, 40_000));
+        Map<String, KillTimes> b = new HashMap<>();
+        b.put("Demonic gorilla", new KillTimes(1, 35_000, 35_000));
+        Session s1 = session("s1", "Cat", timedTrip("a", 0, 600_000, 2, a, 100_000));
+        Session s2 = session("s2", "Cat", timedTrip("b", 0, 600_000, 1, b, 35_000));
+        KillTimes merged = CategoryStats.from("Cat", Arrays.asList(s1, s2), oneGp)
+                .killTimes().get("Demonic gorilla");
+        assertEquals(3, merged.count());
+        assertEquals(45_000, merged.averageMillis());
+        assertEquals(35_000, merged.fastestMillis());
+    }
+
+    @Test
+    public void combatUptimeIsFightTimeOverWallClockOfTimedSessionsOnly() {
+        // Timed session: 30 min fighting across a 1h wall clock (trips 0-30m and 40-60m).
+        Session timed = session("s1", "Cat",
+                timedTrip("a", 0, 1_800_000, 5, new HashMap<>(), 1_200_000),
+                timedTrip("b", 2_400_000, 3_600_000, 5, new HashMap<>(), 600_000));
+        // A session saved before fight timing existed must not dilute the uptime.
+        Session old = session("s2", "Cat", trip("c", 0, 3_600_000, 0, 10));
+        CategoryStats stats = CategoryStats.from("Cat", Arrays.asList(timed, old), oneGp);
+        assertTrue(stats.hasCombatTime());
+        assertEquals(0.5, stats.combatUptime(), 1e-9);
+    }
+
+    @Test
+    public void noFightTimeMeansNoUptime() {
+        Session s1 = session("s1", "Cat", trip("a", 0, 3_600_000, 0, 10));
+        CategoryStats stats = CategoryStats.from("Cat", Arrays.asList(s1), oneGp);
+        assertFalse(stats.hasCombatTime());
+        assertTrue(stats.killTimes().isEmpty());
+    }
 }
