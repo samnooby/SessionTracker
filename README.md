@@ -19,6 +19,9 @@ modifies the game interface.
 - **Per-skill XP averages** — average XP per trip and per hour, broken down by skill.
 - **Category stats** — group sessions by activity (e.g. the monster being killed) and compare
   XP and GP averages across them.
+- **Time to kill & combat uptime** — each kill is timed from your first hit to the monster's
+  death, giving an average and fastest time to kill per monster, alongside kills per hour and
+  the share of the session you actually spent fighting.
 - **GP valuation** — items are valued using live Grand Exchange prices, with potion doses
   normalised so partial potions are counted fairly.
 - **Death & bank detection** — optionally accounts for deaths and bank trips so a single
@@ -57,12 +60,18 @@ hand stays stopped until your next login. The panel has three tabs:
   session back up so new trips are added to it, with the time since it ended left out of its
   GP/hr. Trips and sessions can be deleted from here, including trips of the running session;
   every total and average is recomputed from what remains.
-- **Stats** — per-category XP and GP averages.
+- **Stats** — per-category XP and GP averages, kills per hour, combat uptime, and average and
+  fastest time to kill per monster.
 
 Session history is stored locally under your RuneLite directory
 (`.runelite/sessiontracker`). Nothing is sent anywhere.
 
 ### Known limitations
+
+- **Kill times start at your first hit.** Walking up to a monster and the first attack's wind-up
+  are not counted. A fight you leave alone for 30 seconds is dropped, and kills from before this
+  feature existed have no time, so they appear in kill counts but not in time to kill. Combat
+  uptime only covers sessions recorded since.
 
 - **What an open bag collects is inferred, not read.** The game never exposes these contents, so
   the plugin counts the messages it prints as you gather. Anything it does not print is missed:

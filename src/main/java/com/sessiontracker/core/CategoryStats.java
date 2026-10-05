@@ -24,11 +24,17 @@ public final class CategoryStats {
     private final long avgMissedPerTrip;
     private final double avgKillsPerTrip;
     private final Map<ItemKey, Double> avgSuppliesPerTrip;
+    private final double killsPerHour;
+    private final Map<String, KillTimes> killTimes;
+    private final boolean hasCombatTime;
+    private final double combatUptime;
 
     private CategoryStats(String category, int sessionCount, int tripCount, long gpPerHour,
                           long xpPerHour, long avgTripDurationMillis, long avgSessionDurationMillis,
                           long avgNetProfitPerTrip, long avgMissedPerTrip, double avgKillsPerTrip,
-                          Map<ItemKey, Double> avgSuppliesPerTrip) {
+                          Map<ItemKey, Double> avgSuppliesPerTrip, double killsPerHour,
+                          Map<String, KillTimes> killTimes, boolean hasCombatTime,
+                          double combatUptime) {
         this.category = category;
         this.sessionCount = sessionCount;
         this.tripCount = tripCount;
@@ -40,6 +46,10 @@ public final class CategoryStats {
         this.avgMissedPerTrip = avgMissedPerTrip;
         this.avgKillsPerTrip = avgKillsPerTrip;
         this.avgSuppliesPerTrip = avgSuppliesPerTrip;
+        this.killsPerHour = killsPerHour;
+        this.killTimes = killTimes;
+        this.hasCombatTime = hasCombatTime;
+        this.combatUptime = combatUptime;
     }
 
     public static CategoryStats from(String category, List<Session> sessions, ItemValuer valuer) {
@@ -56,11 +66,19 @@ public final class CategoryStats {
         long totalMissed = 0;
         int totalKills = 0;
         Map<ItemKey, Long> totalSupplies = new HashMap<>();
+        Map<String, KillTimes> killTimes = new HashMap<>();
+        // Uptime only over sessions that recorded fight time: older sessions (and pure skilling
+        // ones) have none, and would otherwise read as time spent not fighting.
+        long timedWallClock = 0;
+        long totalCombat = 0;
 
         for (Session s : sessions) {
             totalWallClock += s.wallClockMillis();
             totalXp += s.totalXp();
+            long sessionCombat = 0;
             for (Trip t : s.trips()) {
+                sessionCombat += t.combatMillis();
+                t.killTimes().forEach((npc, times) -> killTimes.merge(npc, times, KillTimes::plus));
                 ItemValuer valuer = valuerFn.apply(t);
                 tripCount++;
                 totalNet += t.netProfit(valuer);
@@ -71,6 +89,10 @@ public final class CategoryStats {
                     totalSupplies.merge(e.getKey(), e.getValue().longValue(), Long::sum);
                 }
             }
+            if (sessionCombat > 0) {
+                totalCombat += sessionCombat;
+                timedWallClock += s.wallClockMillis();
+            }
         }
 
         long gpPerHour = totalWallClock <= 0 ? 0 : totalNet * MILLIS_PER_HOUR / totalWallClock;
@@ -80,6 +102,11 @@ public final class CategoryStats {
         long avgNet = tripCount == 0 ? 0 : totalNet / tripCount;
         long avgMissed = tripCount == 0 ? 0 : totalMissed / tripCount;
         double avgKills = tripCount == 0 ? 0 : (double) totalKills / tripCount;
+        double killsPerHour = totalWallClock <= 0 ? 0
+                : (double) totalKills * MILLIS_PER_HOUR / totalWallClock;
+        boolean hasCombatTime = timedWallClock > 0;
+        double combatUptime = hasCombatTime
+                ? Math.min(1.0, (double) totalCombat / timedWallClock) : 0;
 
         Map<ItemKey, Double> avgSupplies = new HashMap<>();
         if (tripCount > 0) {
@@ -89,7 +116,8 @@ public final class CategoryStats {
         }
 
         return new CategoryStats(category, sessions.size(), tripCount, gpPerHour, xpPerHour,
-                avgDuration, avgSessionDuration, avgNet, avgMissed, avgKills, avgSupplies);
+                avgDuration, avgSessionDuration, avgNet, avgMissed, avgKills, avgSupplies,
+                killsPerHour, killTimes, hasCombatTime, combatUptime);
     }
 
     public String category() {
@@ -134,5 +162,25 @@ public final class CategoryStats {
 
     public Map<ItemKey, Double> avgSuppliesPerTrip() {
         return Collections.unmodifiableMap(avgSuppliesPerTrip);
+    }
+
+    /** Kills per hour of session wall clock, banking and travel included. */
+    public double killsPerHour() {
+        return killsPerHour;
+    }
+
+    /** Timed kills per NPC, summed across every trip in the category. */
+    public Map<String, KillTimes> killTimes() {
+        return Collections.unmodifiableMap(killTimes);
+    }
+
+    /** True if any session in the category recorded time spent fighting. */
+    public boolean hasCombatTime() {
+        return hasCombatTime;
+    }
+
+    /** Share of wall clock spent fighting (0..1), over sessions that recorded fight time. */
+    public double combatUptime() {
+        return combatUptime;
     }
 }

@@ -23,6 +23,11 @@ public final class Trip {
     // nothing, so they are not supplies; they net against this trip's income instead.
     private final Map<ItemKey, Integer> consumedLoot;
     private final Map<String, Long> xpGained;
+    // How long the timed kills took, per NPC. Kills from before fight timing existed, or that
+    // the player never hit, are counted in kills but not here.
+    private final Map<String, KillTimes> killTimes;
+    // Time spent fighting, overlapping fights counted once.
+    private final long combatMillis;
 
     public Trip(String id, long startMillis, long endMillis, boolean died,
                 Map<String, Integer> kills, Map<ItemKey, Integer> dropped,
@@ -46,6 +51,16 @@ public final class Trip {
                 Map<ItemKey, Integer> pickedUp, Map<ItemKey, Integer> missed,
                 Map<ItemKey, Integer> suppliesUsed, Map<ItemKey, Integer> gathered,
                 Map<ItemKey, Integer> consumedLoot, Map<String, Long> xpGained) {
+        this(id, startMillis, endMillis, died, kills, dropped, pickedUp, missed,
+                suppliesUsed, gathered, consumedLoot, xpGained, new HashMap<>(), 0);
+    }
+
+    public Trip(String id, long startMillis, long endMillis, boolean died,
+                Map<String, Integer> kills, Map<ItemKey, Integer> dropped,
+                Map<ItemKey, Integer> pickedUp, Map<ItemKey, Integer> missed,
+                Map<ItemKey, Integer> suppliesUsed, Map<ItemKey, Integer> gathered,
+                Map<ItemKey, Integer> consumedLoot, Map<String, Long> xpGained,
+                Map<String, KillTimes> killTimes, long combatMillis) {
         this.id = id;
         this.startMillis = startMillis;
         this.endMillis = endMillis;
@@ -58,6 +73,8 @@ public final class Trip {
         this.gathered = new HashMap<>(gathered);
         this.consumedLoot = new HashMap<>(consumedLoot);
         this.xpGained = new HashMap<>(xpGained);
+        this.killTimes = new HashMap<>(killTimes);
+        this.combatMillis = combatMillis;
     }
 
     public String id() {
@@ -143,6 +160,14 @@ public final class Trip {
 
     public Map<String, Long> xpGained() {
         return Collections.unmodifiableMap(xpGained);
+    }
+
+    public Map<String, KillTimes> killTimes() {
+        return Collections.unmodifiableMap(killTimes);
+    }
+
+    public long combatMillis() {
+        return combatMillis;
     }
 
     public int totalKills() {

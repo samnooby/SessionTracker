@@ -1,5 +1,6 @@
 package com.sessiontracker.adapter;
 
+import com.sessiontracker.core.FightTracker;
 import com.sessiontracker.core.Trip;
 import com.sessiontracker.core.TripLedger;
 import com.sessiontracker.core.item.CarriedNormalizer;
@@ -11,6 +12,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.IntFunction;
 
@@ -56,6 +58,7 @@ public final class TrackingService {
     private int containerTransferTicks;
     private static final int CONTAINER_TRANSFER_WINDOW_TICKS = 3;
     private final Map<String, Long> lastXp = new HashMap<>();
+    private final FightTracker fights = new FightTracker();
     private final java.util.Set<ItemKey> droppedThisTick = new java.util.HashSet<>();
 
     // Snapshot valuation calls RuneLite's ItemManager, which must run on the client
@@ -114,6 +117,7 @@ public final class TrackingService {
         completedNet = 0;
         completedXp = 0;
         completedGathered = 0;
+        fights.reset();
         startTrip();
     }
 
@@ -154,6 +158,7 @@ public final class TrackingService {
         if (ledger == null || awaitingDeathChoice) {
             return;
         }
+        fights.expire(clock.nowMillis());
         if (inventoryDirty) {
             Map<ItemKey, Integer> settled = normalize(carried.currentCarried());
             if (bankOpen || geOpen || storageOpen || containerTransferTicks > 0) {
@@ -208,6 +213,31 @@ public final class TrackingService {
         ledger.recordKill(npc, normalize(rawDrops));
         ledgerDirty = true;
         refreshCache();
+    }
+
+    /** The player's hitsplat landed on the NPC at {@code npcIndex}: start or continue timing it. */
+    public void onNpcHit(int npcIndex) {
+        if (ledger == null || awaitingDeathChoice) {
+            return;
+        }
+        fights.hit(npcIndex, clock.nowMillis());
+    }
+
+    /** The NPC at {@code npcIndex} died. If the player was fighting it, record its time to kill. */
+    public void onNpcDeath(int npcIndex, String npc) {
+        if (ledger == null || awaitingDeathChoice) {
+            return;
+        }
+        OptionalLong took = fights.death(npcIndex, clock.nowMillis());
+        if (took.isPresent() && npc != null) {
+            ledger.recordKillTime(npc, took.getAsLong());
+            ledgerDirty = true;
+        }
+    }
+
+    /** The NPC at {@code npcIndex} left the scene alive; any fight against it is over. */
+    public void onNpcDespawned(int npcIndex) {
+        fights.despawn(npcIndex);
     }
 
     public void onXp(String skill, long totalXp) {
@@ -336,6 +366,7 @@ public final class TrackingService {
 
     public void discardTrip() {
         ledger = null;
+        fights.takeUptime(clock.nowMillis()); // the discarded trip's fighting goes with it
         if (activeSession != null) {
             startTrip();
         }
@@ -410,6 +441,7 @@ public final class TrackingService {
         }
         lastXp.clear();
         lastXp.putAll(currentXp.currentXp());
+        fights.reset();
         activeSession = stored;
         recomputeCompletedTotals();
         startTrip();
@@ -426,6 +458,7 @@ public final class TrackingService {
         }
         StoredTrip last = activeSession.trips.remove(activeSession.trips.size() - 1);
         Trip previous = SessionMapper.toTrip(last);
+        ledger.recordCombat(fights.takeUptime(clock.nowMillis()));
         Trip current = ledger.build(tripId, tripStartMillis, clock.nowMillis(), tripDied);
         TripLedger merged = TripLedger.resuming(previous);
         merged.absorb(current);
@@ -604,6 +637,7 @@ public final class TrackingService {
         if (ledger == null) {
             return;
         }
+        ledger.recordCombat(fights.takeUptime(clock.nowMillis()));
         Trip trip = ledger.build(tripId, tripStartMillis, clock.nowMillis(), tripDied);
         ledger = null;
         if (trip.totalKills() == 0 && trip.suppliesUsed().isEmpty() && trip.totalXp() == 0

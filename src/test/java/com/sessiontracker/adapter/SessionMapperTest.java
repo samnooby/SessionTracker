@@ -129,4 +129,25 @@ public class SessionMapperTest {
         Trip restored = SessionMapper.toTrip(stored);
         assertTrue(restored.gathered().isEmpty());
     }
+
+    @Test
+    public void roundTripsKillTimesAndCombatTimeAndToleratesMissingFields() {
+        Map<String, com.sessiontracker.core.KillTimes> times = new HashMap<>();
+        times.put("Goblin", new com.sessiontracker.core.KillTimes(3, 18_000, 4_200));
+        Trip trip = new Trip("t1", 0, 60_000, false, new HashMap<>(), new HashMap<>(),
+                new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(),
+                new HashMap<>(), times, 25_000);
+        StoredTrip stored = SessionMapper.toStored(trip, new HashMap<>());
+        Trip restored = SessionMapper.toTrip(stored);
+        assertEquals(3, restored.killTimes().get("Goblin").count());
+        assertEquals(6_000, restored.killTimes().get("Goblin").averageMillis());
+        assertEquals(4_200, restored.killTimes().get("Goblin").fastestMillis());
+        assertEquals(25_000, restored.combatMillis());
+
+        // A trip saved before fight timing existed.
+        stored.killTimes = null;
+        stored.combatMillis = 0;
+        assertTrue(SessionMapper.toTrip(stored).killTimes().isEmpty());
+        assertEquals(0, SessionMapper.toTrip(stored).combatMillis());
+    }
 }

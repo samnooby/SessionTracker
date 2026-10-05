@@ -30,6 +30,8 @@ public final class TripLedger {
     // Acquired-this-trip items (looted or gathered) that were later consumed: free, so not supplies.
     private final Map<ItemKey, Integer> consumedLoot = new HashMap<>();
     private final Map<String, Long> xp = new HashMap<>();
+    private final Map<String, KillTimes> killTimes = new HashMap<>();
+    private long combatMillis;
 
     // The first item gathered this trip, in encounter order (for auto-naming the session).
     private ItemKey firstGathered = null;
@@ -58,6 +60,8 @@ public final class TripLedger {
         trip.gathered().forEach((k, n) -> gathered.merge(k, n, Integer::sum));
         trip.consumedLoot().forEach((k, n) -> consumedLoot.merge(k, n, Integer::sum));
         trip.xpGained().forEach((skill, n) -> xp.merge(skill, n, Long::sum));
+        trip.killTimes().forEach((npc, t) -> killTimes.merge(npc, t, KillTimes::plus));
+        combatMillis += trip.combatMillis();
     }
 
     public void recordKill(String npcName, Map<ItemKey, Integer> drops) {
@@ -69,6 +73,17 @@ public final class TripLedger {
             }
             dropped.merge(e.getKey(), qty, Integer::sum);
             groundPool.merge(e.getKey(), qty, Integer::sum);
+        }
+    }
+
+    /** A kill of {@code npcName} that took {@code millis} from the player's first hit. */
+    public void recordKillTime(String npcName, long millis) {
+        killTimes.merge(npcName, KillTimes.of(millis), KillTimes::plus);
+    }
+
+    public void recordCombat(long millis) {
+        if (millis > 0) {
+            combatMillis += millis;
         }
     }
 
@@ -230,6 +245,7 @@ public final class TripLedger {
             }
         }
         return new Trip(id, startMillis, endMillis, died,
-                kills, dropped, pickedUp, missed, suppliesUsed, gathered, consumedLoot, xp);
+                kills, dropped, pickedUp, missed, suppliesUsed, gathered, consumedLoot, xp,
+                killTimes, combatMillis);
     }
 }

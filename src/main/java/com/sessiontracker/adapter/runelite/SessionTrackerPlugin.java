@@ -30,13 +30,16 @@ import net.runelite.api.InventoryID;
 import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.MenuAction;
+import net.runelite.api.NPC;
 import net.runelite.api.events.ActorDeath;
 import net.runelite.api.events.AnimationChanged;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
+import net.runelite.api.events.HitsplatApplied;
 import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.events.MenuOptionClicked;
+import net.runelite.api.events.NpcDespawned;
 import net.runelite.api.events.StatChanged;
 import net.runelite.api.events.VarbitChanged;
 import net.runelite.api.events.WidgetClosed;
@@ -508,8 +511,35 @@ public class SessionTrackerPlugin extends Plugin {
 
     @Subscribe
     public void onActorDeath(ActorDeath event) {
-        if (service != null && event.getActor() == client.getLocalPlayer()) {
-            service.onLocalPlayerDeath();
+        if (service == null) {
+            return;
         }
+        if (event.getActor() == client.getLocalPlayer()) {
+            service.onLocalPlayerDeath();
+        } else if (event.getActor() instanceof NPC) {
+            NPC npc = (NPC) event.getActor();
+            service.onNpcDeath(npc.getIndex(), npc.getName());
+        }
+    }
+
+    /** The player's own hits time the fight: the first one starts the clock on that NPC. */
+    @Subscribe
+    public void onHitsplatApplied(HitsplatApplied event) {
+        if (service != null && event.getActor() instanceof NPC && event.getHitsplat().isMine()) {
+            service.onNpcHit(((NPC) event.getActor()).getIndex());
+        }
+    }
+
+    @Subscribe
+    public void onNpcDespawned(NpcDespawned event) {
+        if (service == null) {
+            return;
+        }
+        NPC npc = event.getNpc();
+        if (npc.isDead()) {
+            // Normally ActorDeath already ended the fight; this catches a death it didn't report.
+            service.onNpcDeath(npc.getIndex(), npc.getName());
+        }
+        service.onNpcDespawned(npc.getIndex());
     }
 }

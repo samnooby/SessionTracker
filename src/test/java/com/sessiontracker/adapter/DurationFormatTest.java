@@ -33,4 +33,18 @@ public class DurationFormatTest {
         assertEquals("1h 0m", DurationFormat.compact(3_600_000L));
         assertEquals("1h 23m", DurationFormat.compact(4_980_000L));
     }
+
+    @Test
+    public void killTimeShowsTenthsUnderAMinute() {
+        assertEquals("0.0s", DurationFormat.killTime(0));
+        assertEquals("4.8s", DurationFormat.killTime(4_800));
+        assertEquals("59.9s", DurationFormat.killTime(59_999));
+    }
+
+    @Test
+    public void killTimeShowsMinutesAndSecondsFromAMinute() {
+        assertEquals("1:00", DurationFormat.killTime(60_000));
+        assertEquals("1:45", DurationFormat.killTime(105_400));
+        assertEquals("1:02:05", DurationFormat.killTime(3_725_000));
+    }
 }

@@ -166,6 +166,17 @@ final class StatsTab extends JPanel {
         JLabel supHr = Styles.valueLabel(Styles.NEG);
         supHr.setText(GpFormat.format(d.suppliesGpPerHour));
         perHour.add(supHr);
+        if (d.killsPerHour > 0) {
+            perHour.add(Styles.keyLabel("Kills/hr"));
+            perHour.add(rightValue(String.format(Locale.US, "%.1f", d.killsPerHour), Styles.TEXT));
+        }
+        if (d.hasCombatTime) {
+            JLabel uptimeKey = Styles.keyLabel("Combat uptime");
+            uptimeKey.setToolTipText("Share of session time spent fighting");
+            perHour.add(uptimeKey);
+            perHour.add(rightValue(
+                    String.format(Locale.US, "%.0f%%", d.combatUptime * 100), Styles.TEXT));
+        }
         Styles.capHeight(perHour);
         perHourCard.add(perHour);
         detailBody.add(perHourCard);
@@ -270,6 +281,28 @@ final class StatsTab extends JPanel {
             killCard.add(killGrid);
         }
         detailBody.add(killCard);
+
+        if (!d.killTimes.isEmpty()) {
+            detailBody.add(Styles.sectionHeader("Time to kill"));
+            JPanel ttkCard = Styles.card();
+            JPanel ttkGrid = new JPanel(new GridLayout(0, 3, 6, 3));
+            ttkGrid.setBackground(Styles.CARD);
+            ttkGrid.setAlignmentX(Component.LEFT_ALIGNMENT);
+            ttkGrid.add(Styles.keyLabel("NPC"));
+            ttkGrid.add(rightValue("avg", Styles.SUBTEXT));
+            ttkGrid.add(rightValue("fastest", Styles.SUBTEXT));
+            for (SessionHistory.NpcKillTime k : d.killTimes) {
+                JLabel npc = Styles.keyLabel(k.npc);
+                npc.setToolTipText(k.npc + " · " + k.timedKills
+                        + (k.timedKills == 1 ? " timed kill" : " timed kills"));
+                ttkGrid.add(npc);
+                ttkGrid.add(rightValue(DurationFormat.killTime(k.avgMillis), Styles.TEXT));
+                ttkGrid.add(rightValue(DurationFormat.killTime(k.fastestMillis), Styles.TEXT));
+            }
+            Styles.capHeight(ttkGrid);
+            ttkCard.add(ttkGrid);
+            detailBody.add(ttkCard);
+        }
 
         detailBody.revalidate();
         detailBody.repaint();

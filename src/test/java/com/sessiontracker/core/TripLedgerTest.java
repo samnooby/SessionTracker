@@ -416,4 +416,26 @@ public class TripLedgerTest {
         assertEquals(Long.valueOf(750), trip.xpGained().get("Ranged"));
         assertEquals(Long.valueOf(80), trip.xpGained().get("Hitpoints"));
     }
+
+    @Test
+    public void recordsKillTimesAndCombatTimeAndCarriesThemThroughAbsorb() {
+        TripLedger ledger = new TripLedger();
+        ledger.recordKillTime("Goblin", 6_000);
+        ledger.recordKillTime("Goblin", 3_000);
+        ledger.recordCombat(9_000);
+        ledger.recordCombat(0);
+        Trip first = ledger.build("t1", 0, 60_000, false);
+        assertEquals(2, first.killTimes().get("Goblin").count());
+        assertEquals(3_000, first.killTimes().get("Goblin").fastestMillis());
+        assertEquals(9_000, first.combatMillis());
+
+        TripLedger resumed = TripLedger.resuming(first);
+        resumed.recordKillTime("Goblin", 2_400);
+        resumed.recordCombat(2_400);
+        Trip merged = resumed.build("t1", 0, 120_000, false);
+        assertEquals(3, merged.killTimes().get("Goblin").count());
+        assertEquals(11_400, merged.killTimes().get("Goblin").totalMillis());
+        assertEquals(2_400, merged.killTimes().get("Goblin").fastestMillis());
+        assertEquals(11_400, merged.combatMillis());
+    }
 }
