@@ -1,11 +1,10 @@
 package com.sessiontracker.adapter;
 
 import static org.junit.Assert.*;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import net.runelite.client.util.Filepath;
 import org.junit.Test;
 
 public class SessionStoreTest {
@@ -40,7 +39,7 @@ public class SessionStoreTest {
 
     @Test
     public void savesAndLoadsASessionPerAccount() throws Exception {
-        Path root = Files.createTempDirectory("grt-store");
+        Filepath root = TempRoots.create("grt-store");
         SessionStore store = new SessionStore(root, new com.google.gson.Gson());
 
         store.save(sampleSession("s1", "acct-A"));
@@ -56,7 +55,7 @@ public class SessionStoreTest {
 
     @Test
     public void loadIsolatesByAccount() throws Exception {
-        Path root = Files.createTempDirectory("grt-store");
+        Filepath root = TempRoots.create("grt-store");
         SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         store.save(sampleSession("s1", "acct-A"));
         store.save(sampleSession("s2", "acct-B"));
@@ -67,42 +66,38 @@ public class SessionStoreTest {
 
     @Test
     public void loadOfUnknownAccountIsEmpty() throws Exception {
-        Path root = Files.createTempDirectory("grt-store");
+        Filepath root = TempRoots.create("grt-store");
         SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         assertTrue(store.load("nobody").isEmpty());
     }
 
     @Test
     public void loadSkipsCorruptFilesAndReturnsTheValidOnes() throws Exception {
-        java.nio.file.Path root = java.nio.file.Files.createTempDirectory("grt-store");
+        Filepath root = TempRoots.create("grt-store");
         SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         store.save(sampleSession("good", "acct-A"));
 
         // Write a corrupt JSON file alongside the good one in the same account dir.
-        java.nio.file.Path dir = root.resolve("acct-A");
-        java.nio.file.Files.write(dir.resolve("broken.json"),
-                "{ this is not valid json".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        root.join("acct-A", "broken.json").write("{ this is not valid json");
 
-        java.util.List<StoredSession> loaded = store.load("acct-A");
+        List<StoredSession> loaded = store.load("acct-A");
         assertEquals(1, loaded.size());
         assertEquals("good", loaded.get(0).id);
     }
 
     @Test
     public void loadIgnoresNonJsonFiles() throws Exception {
-        java.nio.file.Path root = java.nio.file.Files.createTempDirectory("grt-store");
+        Filepath root = TempRoots.create("grt-store");
         SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         store.save(sampleSession("good", "acct-A"));
-        java.nio.file.Path dir = root.resolve("acct-A");
-        java.nio.file.Files.write(dir.resolve("notes.txt"),
-                "hello".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        root.join("acct-A", "notes.txt").write("hello");
 
         assertEquals(1, store.load("acct-A").size());
     }
 
     @Test
     public void deleteRemovesOnlyTheNamedSession() throws Exception {
-        Path root = Files.createTempDirectory("grt-store");
+        Filepath root = TempRoots.create("grt-store");
         SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         store.save(sampleSession("s1", "acct-A"));
         store.save(sampleSession("s2", "acct-A"));
@@ -116,7 +111,7 @@ public class SessionStoreTest {
 
     @Test
     public void deleteOfMissingSessionIsANoOp() throws Exception {
-        Path root = Files.createTempDirectory("grt-store");
+        Filepath root = TempRoots.create("grt-store");
         SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         store.save(sampleSession("s1", "acct-A"));
 
@@ -127,7 +122,7 @@ public class SessionStoreTest {
 
     @Test
     public void loadServesSavesAndDeletesWithoutAliasingTheSavedObject() throws Exception {
-        Path root = Files.createTempDirectory("grt-store");
+        Filepath root = TempRoots.create("grt-store");
         SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         StoredSession live = sampleSession("s1", "acct-A");
         store.save(live);
@@ -147,12 +142,12 @@ public class SessionStoreTest {
 
         store.delete("acct-A", "s1");
         assertTrue(store.load("acct-A").isEmpty());
-        assertFalse(Files.exists(root.resolve("acct-A").resolve("s1.json")));
+        assertFalse(root.join("acct-A", "s1.json").exists());
     }
 
     @Test
     public void loadReturnsAnIndependentList() throws Exception {
-        Path root = Files.createTempDirectory("grt-store");
+        Filepath root = TempRoots.create("grt-store");
         SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         store.save(sampleSession("s1", "acct-A"));
 

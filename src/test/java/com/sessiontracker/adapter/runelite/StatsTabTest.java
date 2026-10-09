@@ -21,7 +21,7 @@ import static org.junit.Assert.assertTrue;
 import com.google.gson.Gson;
 import com.sessiontracker.adapter.SessionHistory;
 import com.sessiontracker.adapter.SessionStore;
-import java.nio.file.Files;
+import com.sessiontracker.adapter.TempRoots;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -36,7 +36,7 @@ public class StatsTabTest {
 
     @Before
     public void setUp() throws Exception {
-        SessionStore store = new SessionStore(Files.createTempDirectory("stats-tab-test"), new Gson());
+        SessionStore store = new SessionStore(TempRoots.create("stats-tab-test"), new Gson());
         history = new SessionHistory(store, "42", Fixtures::itemName);
         tab = new StatsTab(Swing.inlineClientThread(), new RecordingIcons(false));
 

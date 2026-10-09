@@ -3,11 +3,10 @@ package com.sessiontracker.adapter;
 import static org.junit.Assert.*;
 import com.sessiontracker.core.Trip;
 import com.sessiontracker.core.item.ItemKey;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import net.runelite.client.util.Filepath;
 import org.junit.Test;
 
 public class TrackingServiceTest {
@@ -97,7 +96,7 @@ public class TrackingServiceTest {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
         carried.carried.put(560, 50);
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
 
         service.startSession();
@@ -111,7 +110,7 @@ public class TrackingServiceTest {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
         carried.carried.put(560, 50); // already carried when the session starts
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
 
         service.startSession();
@@ -129,7 +128,7 @@ public class TrackingServiceTest {
         // empty carried snapshot books the whole inventory as gathered the moment it appears.
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
 
         service.startSession();      // inventory not readable yet: baselines empty
@@ -145,7 +144,7 @@ public class TrackingServiceTest {
     public void killThenTickPickupIsTracked() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
 
         service.startSession();
@@ -169,7 +168,7 @@ public class TrackingServiceTest {
     public void endSessionPersistsAndDefaultsCategoryToFirstMonster() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        Path root = Files.createTempDirectory("grt");
+        Filepath root = TempRoots.create("grt");
         SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
 
@@ -199,7 +198,7 @@ public class TrackingServiceTest {
     public void firstGatheredItemNamesTheCategoryWhenGatherNamingEnabled() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store, naming(true, true));
 
         service.startSession();          // baseline empty inventory
@@ -216,7 +215,7 @@ public class TrackingServiceTest {
     public void killBeforeGatherWinsWhenBothEnabled() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store, naming(true, true));
 
         service.startSession();
@@ -234,7 +233,7 @@ public class TrackingServiceTest {
     public void killDoesNotNameWhenOnlyGatherNamingEnabled() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store, naming(false, true));
 
         service.startSession();
@@ -252,7 +251,7 @@ public class TrackingServiceTest {
     public void noNamingSettingsLeavesCategoryUncategorized() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store, naming(false, false));
 
         service.startSession();
@@ -270,7 +269,7 @@ public class TrackingServiceTest {
     public void depositingGatheredItemsAtBankIsNotASupply() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
 
         service.startSession();
@@ -295,7 +294,7 @@ public class TrackingServiceTest {
     public void withdrawingItemsAtBankIsNotCountedAsGathered() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
 
         service.startSession();
@@ -320,7 +319,7 @@ public class TrackingServiceTest {
     public void depositInPostBankTripIsNotPersistedAsSupplyWhenEndTripEnabled() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
 
         service.startSession();
@@ -348,7 +347,7 @@ public class TrackingServiceTest {
     public void emptyTripIsNotPersisted() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        Path root = Files.createTempDirectory("grt");
+        Filepath root = TempRoots.create("grt");
         SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
 
@@ -363,7 +362,7 @@ public class TrackingServiceTest {
     public void xpFirstObservationPrimesBaselineThenCounts() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
 
         service.startSession();
@@ -377,7 +376,7 @@ public class TrackingServiceTest {
     public void firstXpGainOfEachSkillIsCounted() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         FakeXp xp = new FakeXp();
         xp.xp.put("Attack", 1000L);      // existing totals before the session starts
         xp.xp.put("Woodcutting", 5000L);
@@ -394,7 +393,7 @@ public class TrackingServiceTest {
     public void xpBaselineResetsBetweenSessions() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
 
         service.startSession();
@@ -411,7 +410,7 @@ public class TrackingServiceTest {
     public void droppingALootedItemMovesItToMissedNotSupplies() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
 
         service.startSession();
@@ -439,7 +438,7 @@ public class TrackingServiceTest {
     public void consumingALootedItemIsNotChargedAsSupply() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
 
         service.startSession();
@@ -473,7 +472,7 @@ public class TrackingServiceTest {
     public void reloadedTripValuesIdenticallyToWhenRecorded() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        java.nio.file.Path root = Files.createTempDirectory("grt");
+        Filepath root = TempRoots.create("grt");
         SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         ItemPriceSource prices = id -> id == 560 ? 5 : 1; // item 560 worth 5gp each
         PotionRegistry potions = new PotionRegistry();
@@ -506,7 +505,7 @@ public class TrackingServiceTest {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
         carried.carried.put(1265, 1);          // bring a pickaxe
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
 
         service.startSession();                 // baseline includes the pickaxe
@@ -531,7 +530,7 @@ public class TrackingServiceTest {
     public void sessionSnapshotRollsUpPersistedAndCurrentTrips() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
 
         service.startSession();
@@ -561,7 +560,7 @@ public class TrackingServiceTest {
     public void snapshotXpIsEmptyBeforeAnyXp() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
         service.startSession();
         assertTrue(service.currentSnapshot().get().xpBySkill.isEmpty());
@@ -571,7 +570,7 @@ public class TrackingServiceTest {
     public void snapshotListsXpPerSkillAlphabetically() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
         service.startSession();
         service.onXp("Ranged", 100_000); // primes
@@ -592,7 +591,7 @@ public class TrackingServiceTest {
     public void snapshotKillsByNpcIsEmptyBeforeAnyKill() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
         service.startSession();
         assertTrue(service.currentSnapshot().get().killsByNpc.isEmpty());
@@ -602,7 +601,7 @@ public class TrackingServiceTest {
     public void snapshotListsKillsByNpcMostKilledFirst() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
         service.startSession();
         Map<Integer, Integer> noDrop = new HashMap<>();
@@ -625,7 +624,7 @@ public class TrackingServiceTest {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
         carried.carried.put(556, 100); // 100 air runes carried (inventory or pouch -- combined)
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
 
         service.startSession(); // baseline: 556 -> 100
@@ -644,7 +643,7 @@ public class TrackingServiceTest {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
         carried.carried.put(556, 100);
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
 
         service.startSession(); // baseline: 556 -> 100
@@ -663,7 +662,7 @@ public class TrackingServiceTest {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
         carried.carried.put(12934, 1000); // 1000 Zulrah's scales (inventory or weapon -- combined)
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
 
         service.startSession(); // baseline: 12934 -> 1000
@@ -681,7 +680,7 @@ public class TrackingServiceTest {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
         carried.carried.put(12934, 1000);
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
 
         service.startSession(); // baseline: 12934 -> 1000
@@ -698,7 +697,7 @@ public class TrackingServiceTest {
     public void gatheredResourcesAppearInSnapshotAndPersist() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        Path root = Files.createTempDirectory("grt");
+        Filepath root = TempRoots.create("grt");
         SessionStore store = new SessionStore(root, new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
 
@@ -720,7 +719,7 @@ public class TrackingServiceTest {
     public void gatheredAddsToNetProfit() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
 
         service.startSession();
@@ -739,7 +738,7 @@ public class TrackingServiceTest {
     public void renameAndRecategorizeActiveSessionPersistAfterTripEnds() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
 
         service.startSession();
@@ -768,7 +767,7 @@ public class TrackingServiceTest {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
         carried.carried.put(560, 50);
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
         service.startSession();
 
@@ -793,7 +792,7 @@ public class TrackingServiceTest {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
         carried.carried.put(560, 20);
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
         service.startSession();
 
@@ -811,7 +810,7 @@ public class TrackingServiceTest {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
         carried.carried.put(560, 50);
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
         service.startSession();
 
@@ -834,7 +833,7 @@ public class TrackingServiceTest {
     public void quietTicksRefreshDurationWithoutLosingTripValues() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
         service.startSession();
 
@@ -874,7 +873,7 @@ public class TrackingServiceTest {
     public void resumingASessionContinuesItsTotalsAndExcludesTheGap() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
 
         // Evening one: a single 100gp trip over an hour.
@@ -916,7 +915,7 @@ public class TrackingServiceTest {
     public void resumingTheLastTripMergesItAndReconcilesLootLeftOnTheGround() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
         service.startSession();
 
@@ -958,7 +957,7 @@ public class TrackingServiceTest {
     public void deletingACompletedTripRecomputesTheSessionTotals() throws Exception {
         FakeClock clock = new FakeClock();
         FakeCarried carried = new FakeCarried();
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, carried, new FakePanel(), store);
         service.startSession();
 
@@ -1000,7 +999,7 @@ public class TrackingServiceTest {
     @Test
     public void timesKillsAndCombatIntoTheTrip() throws Exception {
         FakeClock clock = new FakeClock();
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, new FakeCarried(), new FakePanel(), store);
         service.startSession();
 
@@ -1025,7 +1024,7 @@ public class TrackingServiceTest {
     @Test
     public void aFightRunningWhenTheTripEndsIsSplitBetweenTrips() throws Exception {
         FakeClock clock = new FakeClock();
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, new FakeCarried(), new FakePanel(), store);
         service.startSession();
 
@@ -1050,7 +1049,7 @@ public class TrackingServiceTest {
     @Test
     public void anAbandonedFightIsDroppedOnTick() throws Exception {
         FakeClock clock = new FakeClock();
-        SessionStore store = new SessionStore(Files.createTempDirectory("grt"), new com.google.gson.Gson());
+        SessionStore store = new SessionStore(TempRoots.create("grt"), new com.google.gson.Gson());
         TrackingService service = newService(clock, new FakeCarried(), new FakePanel(), store);
         service.startSession();
 
