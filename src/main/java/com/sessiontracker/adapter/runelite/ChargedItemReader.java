@@ -3,6 +3,7 @@ package com.sessiontracker.adapter.runelite;
 import com.sessiontracker.adapter.ChargedItems;
 import java.util.Map;
 import net.runelite.api.Client;
+import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.VarbitID;
 
 /**
@@ -12,8 +13,8 @@ import net.runelite.api.gameval.VarbitID;
  */
 public final class ChargedItemReader {
 
-    // Zulrah's scales item id -- the consumable these weapons store (1 charge = 1 scale).
-    private static final int ZULRAH_SCALE = 12934;
+    // Zulrah's scales -- the consumable these weapons store (1 charge = 1 scale).
+    private static final int ZULRAH_SCALE = ItemID.SNAKEBOSS_SCALE;
 
     private static final int[] CHARGE_VARBITS = {
         VarbitID.CHARGES_TOXIC_BLOWPIPE_QUANTITY,

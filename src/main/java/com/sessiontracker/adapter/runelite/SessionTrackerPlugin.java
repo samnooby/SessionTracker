@@ -18,15 +18,17 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.IntFunction;
+import java.util.regex.Pattern;
 import javax.inject.Inject;
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.Skill;
 import net.runelite.client.game.SkillIconManager;
 import net.runelite.api.GameState;
-import net.runelite.api.InventoryID;
 import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.MenuAction;
@@ -44,12 +46,14 @@ import net.runelite.api.events.StatChanged;
 import net.runelite.api.events.VarbitChanged;
 import net.runelite.api.events.WidgetClosed;
 import net.runelite.api.events.WidgetLoaded;
-import net.runelite.api.widgets.InterfaceID;
+import net.runelite.api.gameval.InterfaceID;
+import net.runelite.api.gameval.InventoryID;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.ClientShutdown;
 import net.runelite.client.events.ConfigChanged;
-import net.runelite.client.events.NpcLootReceived;
+import net.runelite.client.events.ServerNpcLoot;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.ItemStack;
 import net.runelite.client.plugins.Plugin;
@@ -70,6 +74,9 @@ import net.runelite.client.util.Text;
     legacyDataDirectory = "sessiontracker"
 )
 public class SessionTrackerPlugin extends Plugin {
+
+    /** The game's line for a successful pickpocket, as RuneLite's loot tracker matches it. */
+    private static final Pattern PICKPOCKET = Pattern.compile("You pick (the )?.+'s? pocket.*");
 
     @Inject private Client client;
     @Inject private Gson gson;
@@ -115,6 +122,12 @@ public class SessionTrackerPlugin extends Plugin {
      */
     private int quickDepositClickTick = -1;
 
+    /**
+     * Tick the player last pickpocketed someone, or -1. The server reports pickpocket loot as NPC
+     * loot on the same tick, and it isn't a kill.
+     */
+    private int pickpocketTick = -1;
+
     /** Storage screens (see {@link StorageScreens}) currently open. */
     private final Set<Integer> openStorage = new HashSet<>();
 
@@ -151,22 +164,24 @@ public class SessionTrackerPlugin extends Plugin {
 
     @Override
     protected void shutDown() {
+        endService();
+        clientToolbar.removeNavigation(navButton);
+        panel = null;
+    }
+
+    /** Ends and saves the running session, if any, and stops tracking until the next login. */
+    private void endService() {
         if (service != null) {
             service.endSession();
             service = null;
         }
         pendingAutoStart = false;
-        clientToolbar.removeNavigation(navButton);
-        panel = null;
     }
 
     /** Skill-name -> small skill icon, resolved once. Keyed by Skill.getName() to match stored XP keys. */
     private Map<String, Icon> buildSkillIcons() {
         Map<String, Icon> icons = new HashMap<>();
         for (Skill skill : Skill.values()) {
-            if (skill == Skill.OVERALL) {
-                continue;
-            }
             try {
                 BufferedImage img = skillIconManager.getSkillImage(skill, true);
                 if (img != null) {
@@ -202,6 +217,7 @@ public class SessionTrackerPlugin extends Plugin {
         syncedContainers.clear();
         stash.clearAll();
         quickDepositClickTick = -1;
+        pickpocketTick = -1;
         openStorage.clear();
         lastInventory = currentInventory();
     }
@@ -217,7 +233,7 @@ public class SessionTrackerPlugin extends Plugin {
         if (!pendingAutoStart || service == null) {
             return;
         }
-        if (client.getItemContainer(InventoryID.INVENTORY) == null) {
+        if (client.getItemContainer(InventoryID.INV) == null) {
             return; // not loaded yet; try again next tick
         }
         pendingAutoStart = false;
@@ -229,9 +245,6 @@ public class SessionTrackerPlugin extends Plugin {
         return () -> {
             Map<String, Long> xp = new HashMap<>();
             for (Skill skill : Skill.values()) {
-                if (skill == Skill.OVERALL) {
-                    continue;
-                }
                 xp.put(skill.getName(), (long) client.getSkillExperience(skill));
             }
             return xp;
@@ -260,13 +273,30 @@ public class SessionTrackerPlugin extends Plugin {
                 buildService();
             }
         } else if (event.getGameState() == GameState.LOGIN_SCREEN) {
-            if (service != null) {
-                service.endSession();
-                service = null;
-            }
-            pendingAutoStart = false;
+            endService();
             panel.setService(null, false, null);
         }
+    }
+
+    /**
+     * Closing the client while logged in skips both {@link #shutDown()} and the logout, so the
+     * session is ended here or the unbanked trip is lost. The client holds its exit (for up to ten
+     * seconds) until the save on the client thread finishes.
+     */
+    @Subscribe
+    public void onClientShutdown(ClientShutdown event) {
+        if (service == null) {
+            return;
+        }
+        CompletableFuture<Void> ended = new CompletableFuture<>();
+        clientThread.invoke(() -> {
+            try {
+                endService();
+            } finally {
+                ended.complete(null);
+            }
+        });
+        event.waitFor(ended);
     }
 
     /**
@@ -313,6 +343,10 @@ public class SessionTrackerPlugin extends Plugin {
         if (service == null) {
             return;
         }
+        if (isPickpocket(event)) {
+            pickpocketTick = client.getTickCount();
+            return;
+        }
         if (!config.trackOpenBags()) {
             return;
         }
@@ -329,10 +363,18 @@ public class SessionTrackerPlugin extends Plugin {
         }
     }
 
+    /** A game message (not a player's chat) saying the player just picked someone's pocket. */
+    private static boolean isPickpocket(ChatMessage event) {
+        ChatMessageType type = event.getType();
+        return (type == ChatMessageType.GAMEMESSAGE || type == ChatMessageType.SPAM
+                || type == ChatMessageType.MESBOX)
+                && PICKPOCKET.matcher(event.getMessage()).matches();
+    }
+
     /** True if an open form of this container is in the inventory or worn. */
     private boolean carriesOpen(StashBags.Bag bag) {
-        return hasOpen(client.getItemContainer(InventoryID.INVENTORY), bag)
-                || hasOpen(client.getItemContainer(InventoryID.EQUIPMENT), bag);
+        return hasOpen(client.getItemContainer(InventoryID.INV), bag)
+                || hasOpen(client.getItemContainer(InventoryID.WORN), bag);
     }
 
     private static boolean hasOpen(ItemContainer container, StashBags.Bag bag) {
@@ -349,7 +391,7 @@ public class SessionTrackerPlugin extends Plugin {
 
     private Map<Integer, Integer> currentInventory() {
         Map<Integer, Integer> out = new HashMap<>();
-        ItemContainer container = client.getItemContainer(InventoryID.INVENTORY);
+        ItemContainer container = client.getItemContainer(InventoryID.INV);
         if (container == null) {
             return out;
         }
@@ -367,7 +409,7 @@ public class SessionTrackerPlugin extends Plugin {
             return;
         }
         int id = event.getContainerId();
-        if (id == InventoryID.INVENTORY.getId() || id == InventoryID.EQUIPMENT.getId()) {
+        if (id == InventoryID.INV || id == InventoryID.WORN) {
             service.markCarriedDirty();
         } else if (StoredContainerReader.isStoredContainer(id)) {
             if (syncedContainers.add(id)) {
@@ -378,16 +420,21 @@ public class SessionTrackerPlugin extends Plugin {
         }
     }
 
+    /**
+     * The drop as the game server reports it, rather than RuneLite's guess from what appeared on
+     * the ground. That can include drops that never touch the ground: those that land in the
+     * inventory count as picked up, and any that go elsewhere as left behind.
+     */
     @Subscribe
-    public void onNpcLootReceived(NpcLootReceived event) {
-        if (service == null) {
+    public void onServerNpcLoot(ServerNpcLoot event) {
+        if (service == null || client.getTickCount() == pickpocketTick) {
             return;
         }
         Map<Integer, Integer> drops = new HashMap<>();
         for (ItemStack stack : event.getItems()) {
             drops.merge(stack.getId(), stack.getQuantity(), Integer::sum);
         }
-        service.onKill(event.getNpc().getName(), drops);
+        service.onKill(Text.removeTags(event.getComposition().getName()), drops);
     }
 
     @Subscribe
@@ -401,14 +448,14 @@ public class SessionTrackerPlugin extends Plugin {
     public void onWidgetLoaded(WidgetLoaded event) {
         // Always notify the service so banking inventory changes aren't miscounted; the config
         // only decides whether opening the bank also ends the current trip.
-        if (service != null && event.getGroupId() == InterfaceID.BANK) {
+        if (service != null && event.getGroupId() == InterfaceID.BANKMAIN) {
             // Containers are usually emptied here, and the bank rebaselines anyway, so stop
             // believing anything is inside them rather than carrying a phantom around.
             stash.clearAll();
             service.onBankOpened(config.bankDetection());
         }
         // Collecting bought/sold offers changes the inventory but isn't loot; suppress it while open.
-        if (service != null && event.getGroupId() == InterfaceID.GRAND_EXCHANGE) {
+        if (service != null && event.getGroupId() == InterfaceID.GE_OFFERS) {
             service.onGeOpened();
         }
         // Storing isn't using anything up; keep what goes in counted as kept.
@@ -423,10 +470,10 @@ public class SessionTrackerPlugin extends Plugin {
 
     @Subscribe
     public void onWidgetClosed(WidgetClosed event) {
-        if (service != null && event.getGroupId() == InterfaceID.BANK) {
+        if (service != null && event.getGroupId() == InterfaceID.BANKMAIN) {
             service.onBankClosed();
         }
-        if (service != null && event.getGroupId() == InterfaceID.GRAND_EXCHANGE) {
+        if (service != null && event.getGroupId() == InterfaceID.GE_OFFERS) {
             service.onGeClosed();
         }
         // Some storage spans two screens (the seed vault); resume once the last one closes.

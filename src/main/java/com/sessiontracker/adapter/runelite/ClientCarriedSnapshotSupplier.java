@@ -6,9 +6,9 @@ import com.sessiontracker.adapter.StashLedger;
 import java.util.HashMap;
 import java.util.Map;
 import net.runelite.api.Client;
-import net.runelite.api.InventoryID;
 import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
+import net.runelite.api.gameval.InventoryID;
 
 /**
  * Reads everything the player is carrying from the client and combines it into one carried map:
@@ -40,8 +40,8 @@ public final class ClientCarriedSnapshotSupplier implements CarriedSnapshotSuppl
     @Override
     public Map<Integer, Integer> currentCarried() {
         return CarriedSnapshots.combine(
-                toMap(client.getItemContainer(InventoryID.INVENTORY)),
-                toMap(client.getItemContainer(InventoryID.EQUIPMENT)),
+                toMap(client.getItemContainer(InventoryID.INV)),
+                toMap(client.getItemContainer(InventoryID.WORN)),
                 pouch.contents(),
                 charged.contents(),
                 stored.contents(),

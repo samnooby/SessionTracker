@@ -4,7 +4,7 @@ import com.sessiontracker.adapter.RunePouch;
 import java.util.Map;
 import net.runelite.api.Client;
 import net.runelite.api.EnumComposition;
-import net.runelite.api.Varbits;
+import net.runelite.api.gameval.VarbitID;
 
 /** Reads the rune pouch's slot varbits and resolves rune item ids via the game cache enum. */
 public final class RunePouchReader {
@@ -14,12 +14,14 @@ public final class RunePouchReader {
     private static final int RUNE_POUCH_RUNE_ENUM = 982;
 
     private static final int[] TYPE_VARBITS = {
-        Varbits.RUNE_POUCH_RUNE1, Varbits.RUNE_POUCH_RUNE2,
-        Varbits.RUNE_POUCH_RUNE3, Varbits.RUNE_POUCH_RUNE4,
+        VarbitID.RUNE_POUCH_TYPE_1, VarbitID.RUNE_POUCH_TYPE_2,
+        VarbitID.RUNE_POUCH_TYPE_3, VarbitID.RUNE_POUCH_TYPE_4,
+        VarbitID.RUNE_POUCH_TYPE_5, VarbitID.RUNE_POUCH_TYPE_6,
     };
     private static final int[] AMOUNT_VARBITS = {
-        Varbits.RUNE_POUCH_AMOUNT1, Varbits.RUNE_POUCH_AMOUNT2,
-        Varbits.RUNE_POUCH_AMOUNT3, Varbits.RUNE_POUCH_AMOUNT4,
+        VarbitID.RUNE_POUCH_QUANTITY_1, VarbitID.RUNE_POUCH_QUANTITY_2,
+        VarbitID.RUNE_POUCH_QUANTITY_3, VarbitID.RUNE_POUCH_QUANTITY_4,
+        VarbitID.RUNE_POUCH_QUANTITY_5, VarbitID.RUNE_POUCH_QUANTITY_6,
     };
 
     private final Client client;

@@ -9,10 +9,9 @@ import static org.mockito.Mockito.when;
 import java.util.Map;
 import net.runelite.api.Client;
 import net.runelite.api.EnumComposition;
-import net.runelite.api.InventoryID;
 import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
-import net.runelite.api.Varbits;
+import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.VarbitID;
 import org.junit.Before;
@@ -33,12 +32,12 @@ public class ClientCarriedSnapshotSupplierTest {
 
     @Before
     public void setUp() {
-        when(client.getItemContainer(InventoryID.INVENTORY)).thenReturn(inventory);
-        when(client.getItemContainer(InventoryID.EQUIPMENT)).thenReturn(equipment);
+        when(client.getItemContainer(anyInt())).thenReturn(null); // no storage containers synced
+        when(client.getItemContainer(InventoryID.INV)).thenReturn(inventory);
+        when(client.getItemContainer(InventoryID.WORN)).thenReturn(equipment);
         when(inventory.getItems()).thenReturn(new Item[0]);
         when(equipment.getItems()).thenReturn(new Item[0]);
         when(client.getVarbitValue(anyInt())).thenReturn(0);
-        when(client.getItemContainer(anyInt())).thenReturn(null); // no storage containers synced
     }
 
     @Test
@@ -57,8 +56,8 @@ public class ClientCarriedSnapshotSupplierTest {
 
     @Test
     public void missingContainersReadAsEmpty() {
-        when(client.getItemContainer(InventoryID.INVENTORY)).thenReturn(null);
-        when(client.getItemContainer(InventoryID.EQUIPMENT)).thenReturn(null);
+        when(client.getItemContainer(InventoryID.INV)).thenReturn(null);
+        when(client.getItemContainer(InventoryID.WORN)).thenReturn(null);
 
         assertTrue(new ClientCarriedSnapshotSupplier(client).currentCarried().isEmpty());
     }
@@ -68,12 +67,26 @@ public class ClientCarriedSnapshotSupplierTest {
         EnumComposition runeEnum = mock(EnumComposition.class);
         when(runeEnum.getIntValue(3)).thenReturn(FIRE_RUNE);
         when(client.getEnum(982)).thenReturn(runeEnum);
-        when(client.getVarbitValue(Varbits.RUNE_POUCH_RUNE1)).thenReturn(3);
-        when(client.getVarbitValue(Varbits.RUNE_POUCH_AMOUNT1)).thenReturn(500);
+        when(client.getVarbitValue(VarbitID.RUNE_POUCH_TYPE_1)).thenReturn(3);
+        when(client.getVarbitValue(VarbitID.RUNE_POUCH_QUANTITY_1)).thenReturn(500);
 
         Map<Integer, Integer> carried = new ClientCarriedSnapshotSupplier(client).currentCarried();
 
         assertEquals(Integer.valueOf(500), carried.get(FIRE_RUNE));
+    }
+
+    @Test
+    public void theLastRunePouchSlotCountsToo() {
+        EnumComposition runeEnum = mock(EnumComposition.class);
+        when(runeEnum.getIntValue(3)).thenReturn(FIRE_RUNE);
+        when(client.getEnum(982)).thenReturn(runeEnum);
+        when(client.getVarbitValue(VarbitID.RUNE_POUCH_TYPE_6)).thenReturn(3);
+        when(client.getVarbitValue(VarbitID.RUNE_POUCH_QUANTITY_6)).thenReturn(250);
+
+        Map<Integer, Integer> carried = new ClientCarriedSnapshotSupplier(client).currentCarried();
+
+        assertEquals(Integer.valueOf(250), carried.get(FIRE_RUNE));
+        assertTrue(RunePouchReader.isRunePouchVarbit(VarbitID.RUNE_POUCH_QUANTITY_6));
     }
 
     @Test
@@ -92,8 +105,8 @@ public class ClientCarriedSnapshotSupplierTest {
         when(lootingBag.getItems()).thenReturn(new Item[] { new Item(COINS, 5_000), new Item(-1, 0) });
         ItemContainer seedBox = mock(ItemContainer.class);
         when(seedBox.getItems()).thenReturn(new Item[] { new Item(SAPPHIRE, 3) });
-        when(client.getItemContainer(net.runelite.api.gameval.InventoryID.LOOTING_BAG)).thenReturn(lootingBag);
-        when(client.getItemContainer(net.runelite.api.gameval.InventoryID.SEED_BOX)).thenReturn(seedBox);
+        when(client.getItemContainer(InventoryID.LOOTING_BAG)).thenReturn(lootingBag);
+        when(client.getItemContainer(InventoryID.SEED_BOX)).thenReturn(seedBox);
         when(inventory.getItems()).thenReturn(new Item[] { new Item(COINS, 100) });
 
         Map<Integer, Integer> carried = new ClientCarriedSnapshotSupplier(client).currentCarried();
@@ -116,9 +129,9 @@ public class ClientCarriedSnapshotSupplierTest {
 
     @Test
     public void storedContainerIdsAreRecognised() {
-        assertTrue(StoredContainerReader.isStoredContainer(net.runelite.api.gameval.InventoryID.LOOTING_BAG));
-        assertTrue(StoredContainerReader.isStoredContainer(net.runelite.api.gameval.InventoryID.SEED_BOX));
-        assertTrue(!StoredContainerReader.isStoredContainer(InventoryID.INVENTORY.getId()));
+        assertTrue(StoredContainerReader.isStoredContainer(InventoryID.LOOTING_BAG));
+        assertTrue(StoredContainerReader.isStoredContainer(InventoryID.SEED_BOX));
+        assertTrue(!StoredContainerReader.isStoredContainer(InventoryID.INV));
         assertTrue(PlankSackReader.isPlankSackVarbit(VarbitID.PLANK_SACK_PLAIN));
         assertTrue(StashContainers.isTransfer(ItemID.GEM_BAG_OPEN, "Fill"));
         assertTrue(StashContainers.isTransfer(ItemID.FISH_BARREL_CLOSED, "Empty"));

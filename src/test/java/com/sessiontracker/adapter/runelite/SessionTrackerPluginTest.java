@@ -29,17 +29,16 @@ import com.sessiontracker.adapter.SessionStore;
 import com.sessiontracker.adapter.StoredSession;
 import com.sessiontracker.adapter.StoredTrip;
 import com.sessiontracker.adapter.TempRoots;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import javax.inject.Inject;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
-import net.runelite.api.InventoryID;
 import net.runelite.api.Item;
 import net.runelite.api.ItemComposition;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.MenuEntry;
-import net.runelite.api.NPC;
+import net.runelite.api.NPCComposition;
 import net.runelite.api.Player;
 import net.runelite.api.Skill;
 import net.runelite.api.events.ActorDeath;
@@ -54,10 +53,12 @@ import net.runelite.api.gameval.ObjectID;
 import net.runelite.api.events.StatChanged;
 import net.runelite.api.events.WidgetClosed;
 import net.runelite.api.events.WidgetLoaded;
+import net.runelite.api.gameval.InterfaceID;
+import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.ItemID;
-import net.runelite.api.widgets.InterfaceID;
 import net.runelite.client.callback.ClientThread;
-import net.runelite.client.events.NpcLootReceived;
+import net.runelite.client.events.ClientShutdown;
+import net.runelite.client.events.ServerNpcLoot;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.ItemStack;
 import net.runelite.client.game.SkillIconManager;
@@ -86,7 +87,7 @@ public class SessionTrackerPluginTest {
     private static final int COAL = net.runelite.api.gameval.ItemID.COAL;
     private static final int COAL_BAG_OPEN = net.runelite.api.gameval.ItemID.COAL_BAG_OPEN;
     private static final int COAL_BAG_CLOSED = net.runelite.api.gameval.ItemID.COAL_BAG;
-    private static final int LOOTING_BAG_CONTAINER = net.runelite.api.gameval.InventoryID.LOOTING_BAG;
+    private static final int LOOTING_BAG_CONTAINER = InventoryID.LOOTING_BAG;
     private static final String ACCOUNT = "42";
 
     @Inject private SessionTrackerPlugin plugin;
@@ -132,11 +133,15 @@ public class SessionTrackerPluginTest {
         when(client.getGameState()).thenReturn(GameState.LOGIN_SCREEN);
         when(client.getAccountHash()).thenReturn(42L);
         when(client.getLocalPlayer()).thenReturn(localPlayer);
-        when(client.getItemContainer(InventoryID.INVENTORY)).thenReturn(inventory);
-        when(client.getItemContainer(InventoryID.EQUIPMENT)).thenReturn(equipment);
         when(client.getVarbitValue(anyInt())).thenReturn(0);
         when(client.getItemContainer(anyInt())).thenAnswer(invocation -> {
-            Integer containerId = invocation.getArgument(0);
+            int containerId = invocation.getArgument(0);
+            if (containerId == InventoryID.INV) {
+                return inventory;
+            }
+            if (containerId == InventoryID.WORN) {
+                return equipment;
+            }
             return containerId == LOOTING_BAG_CONTAINER && lootingBagSynced ? lootingBag : null;
         });
         when(inventory.getItems()).thenAnswer(invocation -> inventoryItems);
@@ -251,10 +256,10 @@ public class SessionTrackerPluginTest {
         tick();
         kill("Vorkath");
 
-        openWidget(InterfaceID.GRAND_EXCHANGE);
+        openWidget(InterfaceID.GE_OFFERS);
         inventoryBecomes(new Item(SHARK, 5), new Item(COINS, 50_000)); // collected a sold offer
         tick();
-        closeWidget(InterfaceID.GRAND_EXCHANGE);
+        closeWidget(InterfaceID.GE_OFFERS);
         logout();
 
         StoredTrip trip = onlyTrip();
@@ -326,6 +331,51 @@ public class SessionTrackerPluginTest {
         SessionTrackerPanel panel = panel();
         label(panel, "Log in to start tracking");
         assertFalse(button(panel, "Start tracking").isEnabled());
+    }
+
+    @Test
+    public void closingTheClientWhileLoggedInSavesTheUnbankedTrip() throws Exception {
+        login();
+        inventoryItems = items(new Item(SHARK, 5));
+        tick();
+        kill("Vorkath");
+
+        // No logout and no plugin shutDown() follow this: the client just exits.
+        ClientShutdown shutdown = new ClientShutdown();
+        plugin.onClientShutdown(shutdown);
+
+        assertEquals("the client should wait for the save", 1, shutdown.getTasks().size());
+        assertTrue(shutdown.getTasks().peek().isDone());
+        assertEquals(Integer.valueOf(1), onlyTrip().kills.get("Vorkath"));
+        assertTrue(stored().get(0).endMillis > 0);
+    }
+
+    @Test
+    public void closingTheClientAtTheLoginScreenHasNothingToWaitFor() {
+        ClientShutdown shutdown = new ClientShutdown();
+        plugin.onClientShutdown(shutdown);
+
+        assertTrue(shutdown.getTasks().isEmpty());
+    }
+
+    @Test
+    public void pickpocketLootIsNotAKill() {
+        login();
+        inventoryItems = items(new Item(SHARK, 5));
+        tick();
+
+        // The server reports pickpocket loot as NPC loot, on the same tick as the game message.
+        when(client.getTickCount()).thenReturn(10);
+        chatMessage("You pick the man's pocket.");
+        kill("Man", new ItemStack(COINS, 3));
+        when(client.getTickCount()).thenReturn(11);
+        kill("Man", new ItemStack(BONES, 1));
+        logout();
+
+        StoredTrip trip = onlyTrip();
+        assertEquals(Integer.valueOf(1), trip.kills.get("Man"));
+        assertNull(trip.dropped.get(key(COINS)));
+        assertEquals(Integer.valueOf(1), trip.dropped.get(key(BONES)));
     }
 
     @Test
@@ -533,10 +583,10 @@ public class SessionTrackerPluginTest {
         kill("Vorkath");
 
         clickObject(ObjectID.BANK_DEPOSIT_BOX, "Deposit", "<col=ffff>Bank deposit box");
-        openWidget(InterfaceID.DEPOSIT_BOX);
+        openWidget(InterfaceID.BANK_DEPOSITBOX);
         inventoryBecomes(new Item(SHARK, 2)); // deposited three through the screen
         tick();
-        closeWidget(InterfaceID.DEPOSIT_BOX);
+        closeWidget(InterfaceID.BANK_DEPOSITBOX);
         playAnimation(AnimationID.HUMAN_LEVERDOWN); // a later, unrelated lever pull
         inventoryBecomes(new Item(SHARK, 1));        // then ate one
         tick();
@@ -608,10 +658,10 @@ public class SessionTrackerPluginTest {
 
         inventoryBecomes(new Item(SHARK, 5), new Item(SAPPHIRE, 2));
         tick();
-        openWidget(InterfaceID.DEPOSIT_BOX);
+        openWidget(InterfaceID.BANK_DEPOSITBOX);
         inventoryBecomes();
         tick();
-        closeWidget(InterfaceID.DEPOSIT_BOX);
+        closeWidget(InterfaceID.BANK_DEPOSITBOX);
         logout();
 
         StoredTrip trip = onlyTrip();
@@ -624,11 +674,11 @@ public class SessionTrackerPluginTest {
     public void storingAtTheLeprechaunSeedVaultGroupStorageOrCoxIsNotUsedAndTakingOutIsNotAGain()
             throws Exception {
         int[] screens = {
-            net.runelite.api.gameval.InterfaceID.FARMING_TOOLS,
-            net.runelite.api.gameval.InterfaceID.SEED_VAULT,
-            net.runelite.api.gameval.InterfaceID.SHARED_BANK,
-            net.runelite.api.gameval.InterfaceID.RAIDS_STORAGE_PRIVATE,
-            net.runelite.api.gameval.InterfaceID.RAIDS_STORAGE_SHARED,
+            InterfaceID.FARMING_TOOLS,
+            InterfaceID.SEED_VAULT,
+            InterfaceID.SHARED_BANK,
+            InterfaceID.RAIDS_STORAGE_PRIVATE,
+            InterfaceID.RAIDS_STORAGE_SHARED,
         };
         login();
         inventoryItems = items(new Item(SHARK, 5));
@@ -660,12 +710,12 @@ public class SessionTrackerPluginTest {
         tick();
         kill("Vorkath");
 
-        openWidget(net.runelite.api.gameval.InterfaceID.SEED_VAULT);
-        openWidget(net.runelite.api.gameval.InterfaceID.SEED_VAULT_DEPOSIT);
-        closeWidget(net.runelite.api.gameval.InterfaceID.SEED_VAULT_DEPOSIT);
+        openWidget(InterfaceID.SEED_VAULT);
+        openWidget(InterfaceID.SEED_VAULT_DEPOSIT);
+        closeWidget(InterfaceID.SEED_VAULT_DEPOSIT);
         inventoryBecomes(new Item(SHARK, 2)); // still storing: the vault itself is open
         tick();
-        closeWidget(net.runelite.api.gameval.InterfaceID.SEED_VAULT);
+        closeWidget(InterfaceID.SEED_VAULT);
         inventoryBecomes(new Item(SHARK, 1)); // eaten after closing it
         tick();
         logout();
@@ -735,7 +785,7 @@ public class SessionTrackerPluginTest {
 
     private void inventoryBecomes(Item... items) {
         inventoryItems = items;
-        plugin.onItemContainerChanged(new ItemContainerChanged(InventoryID.INVENTORY.getId(), inventory));
+        plugin.onItemContainerChanged(new ItemContainerChanged(InventoryID.INV, inventory));
     }
 
     /** The game sends (or re-sends) the looting bag container with these contents. */
@@ -786,14 +836,11 @@ public class SessionTrackerPluginTest {
         plugin.onAnimationChanged(event);
     }
 
+    /** The server reports an NPC's drop, as it does on a kill (and, misleadingly, a pickpocket). */
     private void kill(String npcName, ItemStack... drops) {
-        NPC npc = mock(NPC.class);
+        NPCComposition npc = mock(NPCComposition.class);
         when(npc.getName()).thenReturn(npcName);
-        List<ItemStack> stacks = new ArrayList<>();
-        for (ItemStack drop : drops) {
-            stacks.add(drop);
-        }
-        plugin.onNpcLootReceived(new NpcLootReceived(npc, stacks));
+        plugin.onServerNpcLoot(new ServerNpcLoot(npc, Arrays.asList(drops)));
     }
 
     private void gainHitpointsXp(int delta) {
@@ -802,11 +849,11 @@ public class SessionTrackerPluginTest {
     }
 
     private void openBank() {
-        openWidget(InterfaceID.BANK);
+        openWidget(InterfaceID.BANKMAIN);
     }
 
     private void closeBank() {
-        closeWidget(InterfaceID.BANK);
+        closeWidget(InterfaceID.BANKMAIN);
     }
 
     private void openWidget(int groupId) {
