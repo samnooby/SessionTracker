@@ -24,8 +24,8 @@ import static org.mockito.Mockito.when;
 import com.google.gson.Gson;
 import com.sessiontracker.adapter.SessionHistory;
 import com.sessiontracker.adapter.SessionStore;
+import com.sessiontracker.adapter.TempRoots;
 import com.sessiontracker.adapter.TrackingService;
-import java.nio.file.Files;
 import java.util.Collections;
 import java.util.List;
 import javax.swing.JTextField;
@@ -43,7 +43,7 @@ public class SessionsTabTest {
 
     @Before
     public void setUp() throws Exception {
-        store = new SessionStore(Files.createTempDirectory("sessions-tab-test"), new Gson());
+        store = new SessionStore(TempRoots.create("sessions-tab-test"), new Gson());
         history = new SessionHistory(store, "42", Fixtures::itemName);
         tab = new SessionsTab(Swing.inlineClientThread(), Collections.emptyMap(), new RecordingIcons(false));
 

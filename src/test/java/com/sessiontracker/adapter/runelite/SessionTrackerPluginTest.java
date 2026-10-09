@@ -28,8 +28,7 @@ import com.sessiontracker.adapter.SessionHistory;
 import com.sessiontracker.adapter.SessionStore;
 import com.sessiontracker.adapter.StoredSession;
 import com.sessiontracker.adapter.StoredTrip;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import com.sessiontracker.adapter.TempRoots;
 import java.util.ArrayList;
 import java.util.List;
 import javax.inject.Inject;
@@ -64,6 +63,7 @@ import net.runelite.client.game.ItemStack;
 import net.runelite.client.game.SkillIconManager;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
+import net.runelite.client.util.Filepath;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -104,7 +104,7 @@ public class SessionTrackerPluginTest {
     @Mock private ItemContainer lootingBag;
     @Mock private Player localPlayer;
 
-    private Path storeRoot;
+    private Filepath storeRoot;
     private Item[] inventoryItems = new Item[0];
     private Item[] lootingBagItems = new Item[0];
     private boolean lootingBagSynced; // the client only has the container once the game sends it
@@ -113,7 +113,7 @@ public class SessionTrackerPluginTest {
     @Before
     public void setUp() throws Exception {
         MockitoAnnotations.openMocks(this);
-        storeRoot = Files.createTempDirectory("sessiontracker-plugin-test");
+        storeRoot = TempRoots.create("sessiontracker-plugin-test");
 
         // Client-thread work runs inline: the test is single-threaded apart from the EDT.
         doAnswer(invocation -> {

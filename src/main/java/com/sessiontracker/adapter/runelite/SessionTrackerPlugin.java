@@ -12,7 +12,7 @@ import com.google.gson.Gson;
 import com.google.inject.Provides;
 import java.awt.Image;
 import java.awt.image.BufferedImage;
-import java.nio.file.Path;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -45,7 +45,6 @@ import net.runelite.api.events.VarbitChanged;
 import net.runelite.api.events.WidgetClosed;
 import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.widgets.InterfaceID;
-import net.runelite.client.RuneLite;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -57,13 +56,18 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
+import net.runelite.client.util.Filepath;
 import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.Text;
 
 @PluginDescriptor(
     name = "Session Tracker",
     description = "Track trips and sessions: loot, supplies, XP, GP/hr",
-    tags = {"loot", "xp", "tracking", "session", "trip"}
+    tags = {"loot", "xp", "tracking", "session", "trip"},
+    internalName = "session-tracker",
+    // Sessions used to live in .runelite/sessiontracker; the client moves them into the plugin's
+    // data directory the first time getPluginDirectory() is called.
+    legacyDataDirectory = "sessiontracker"
 )
 public class SessionTrackerPlugin extends Plugin {
 
@@ -114,8 +118,11 @@ public class SessionTrackerPlugin extends Plugin {
     /** Storage screens (see {@link StorageScreens}) currently open. */
     private final Set<Integer> openStorage = new HashSet<>();
 
-    /** Where session JSON is stored. Package-private so tests can point it at a temp directory. */
-    Path storeRoot = RuneLite.RUNELITE_DIR.toPath().resolve("sessiontracker");
+    /**
+     * Where session JSON is stored: the plugin's data directory, resolved on start-up. Package-private
+     * so tests can point it at a temp directory before starting the plugin.
+     */
+    Filepath storeRoot;
 
     @Provides
     SessionTrackerConfig provideConfig(ConfigManager configManager) {
@@ -123,7 +130,10 @@ public class SessionTrackerPlugin extends Plugin {
     }
 
     @Override
-    protected void startUp() {
+    protected void startUp() throws IOException {
+        if (storeRoot == null) {
+            storeRoot = getPluginDirectory();
+        }
         ItemIconProvider itemIcons = new ItemManagerIconProvider(itemManager, clientThread, config::showItemIcons);
         panel = new SessionTrackerPanel(clientThread, buildSkillIcons(), itemIcons);
         BufferedImage icon = ImageUtil.loadImageResource(SessionTrackerPlugin.class, "icon.png");

@@ -63,8 +63,9 @@ hand stays stopped until your next login. The panel has three tabs:
 - **Stats** — per-category XP and GP averages, kills per hour, combat uptime, and average and
   fastest time to kill per monster.
 
-Session history is stored locally under your RuneLite directory
-(`.runelite/sessiontracker`). Nothing is sent anywhere.
+Session history is stored locally in the plugin's RuneLite data directory
+(`.runelite/plugin-data/session-tracker`). History saved by older versions in
+`.runelite/sessiontracker` is moved there automatically. Nothing is sent anywhere.
 
 ### Known limitations
 

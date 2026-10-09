@@ -1,11 +1,11 @@
 package com.sessiontracker.adapter;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonParseException;
 import java.io.IOException;
+import java.io.Reader;
 import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import net.runelite.client.util.Filepath;
 
 /**
  * Reads/writes sessions as one JSON file per session under a per-account directory.
@@ -22,14 +23,17 @@ import java.util.stream.Stream;
  * detail view), some of it on the Swing and game threads, so this keeps disk I/O and JSON
  * parsing off those threads after the first load. This store is the only writer of its files;
  * edits made behind its back on disk are not seen until the next client start.
+ *
+ * <p>All file access goes through RuneLite's {@link Filepath}, which keeps every path inside
+ * {@code root} (the plugin's data directory in the client).
  */
 public final class SessionStore {
 
-    private final Path root;
+    private final Filepath root;
     private final Gson gson;
     private final Map<String, List<StoredSession>> cache = new HashMap<>();
 
-    public SessionStore(Path root, Gson gson) {
+    public SessionStore(Filepath root, Gson gson) {
         this.root = root;
         this.gson = gson;
     }
@@ -37,15 +41,15 @@ public final class SessionStore {
     public synchronized void save(StoredSession session) {
         String json = gson.toJson(session);
         try {
-            Path dir = root.resolve(session.accountHash);
-            Files.createDirectories(dir);
-            Path file = dir.resolve(session.id + ".json");
-            Path tmp = Files.createTempFile(dir, session.id, ".json.tmp");
-            Files.write(tmp, json.getBytes(StandardCharsets.UTF_8));
+            Filepath dir = root.joinSegment(session.accountHash);
+            dir.createDirectories();
+            Filepath file = dir.joinSegment(session.id + ".json");
+            Filepath tmp = dir.createTempFile(session.id, ".json.tmp");
+            tmp.write(json);
             try {
-                Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-            } catch (java.nio.file.AtomicMoveNotSupportedException e) {
-                Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
+                tmp.moveTo(file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException e) {
+                tmp.moveTo(file, StandardCopyOption.REPLACE_EXISTING);
             }
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to save session " + session.id, e);
@@ -59,9 +63,8 @@ public final class SessionStore {
     }
 
     public synchronized void delete(String accountHash, String sessionId) {
-        Path file = root.resolve(accountHash).resolve(sessionId + ".json");
         try {
-            Files.deleteIfExists(file);
+            root.joinSegment(accountHash).joinSegment(sessionId + ".json").deleteIfExists();
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to delete session " + sessionId, e);
         }
@@ -91,25 +94,24 @@ public final class SessionStore {
     }
 
     private List<StoredSession> readFromDisk(String accountHash) {
-        Path dir = root.resolve(accountHash);
+        Filepath dir = root.joinSegment(accountHash);
         List<StoredSession> sessions = new ArrayList<>();
-        if (!Files.isDirectory(dir)) {
+        if (!dir.isDirectory()) {
             return sessions;
         }
         try {
-            List<Path> files;
-            try (Stream<Path> stream = Files.list(dir)) {
-                files = stream.filter(p -> p.toString().endsWith(".json"))
+            List<Filepath> files;
+            try (Stream<Filepath> stream = dir.walk(1)) {
+                files = stream.filter(p -> p.isFile() && p.getFileName().endsWith(".json"))
                         .collect(Collectors.toList());
             }
-            for (Path file : files) {
-                try {
-                    String json = new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
-                    StoredSession session = gson.fromJson(json, StoredSession.class);
+            for (Filepath file : files) {
+                try (Reader reader = file.openBufferedReader()) {
+                    StoredSession session = gson.fromJson(reader, StoredSession.class);
                     if (session != null) {
                         sessions.add(session);
                     }
-                } catch (IOException | com.google.gson.JsonSyntaxException e) {
+                } catch (IOException | JsonParseException e) {
                     // Skip a corrupt or unreadable session file rather than failing the whole load.
                 }
             }
